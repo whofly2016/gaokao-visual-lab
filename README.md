@@ -6,7 +6,7 @@
 
 ## 在线体验 / Live
 
-GitHub Pages: 见仓库 **Settings → Pages** 启用后的地址(本 README 会在上线后补具体链接)。
+**🔗 https://whofly2016.github.io/gaokao-visual-lab/**
 
 本地预览:克隆后用任意静态服务器打开,例如
 ```bash
