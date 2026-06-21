@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>圆锥曲线可视化实验室 · 椭圆 / 抛物线 / 双曲线</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --panel: #1a212b;
+    --panel2: #232c38;
+    --ink: #e6edf3;
+    --muted: #93a1b1;
+    --accent: #4fc3f7;
+    --inc: #58d68d;
+    --dec: #ef7a85;
+    --tangent: #ffd166;
+    --maxpt: #ff6b6b;
+    --minpt: #5dade2;
+    --grid: #2a3441;
+    --axis: #5b6b7b;
+    --focus: #ff9f43;
+    --curve: #4fc3f7;
+    --draggable: #ffd166;
+    --asymptote: #a29bfe;
+    --directrix: #fd79a8;
+    --focal-r1: #58d68d;
+    --focal-r2: #ef7a85;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    height: 100%;
+  }
+  .app {
+    display: flex;
+    flex-direction: row;
+    min-height: 100vh;
+  }
+  .stage {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    min-width: 0;
+  }
+  .stage-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+  .stage h1 {
+    font-size: 18px;
+    margin: 0;
+    font-weight: 600;
+  }
+  .stage .sub {
+    color: var(--muted);
+    font-size: 13px;
+    margin: 0 0 12px 0;
+  }
+  .canvas-wrap {
+    position: relative;
+    flex: 1 1 auto;
+    background: #0b0f14;
+    border: 1px solid var(--grid);
+    border-radius: 10px;
+    overflow: hidden;
+    min-height: 360px;
+  }
+  canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+  canvas.dragging { cursor: grabbing; }
+
+  .lang-switch {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .lang-switch button {
+    background: none;
+    border: none;
+    padding: 2px 6px;
+    font-size: 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--muted);
+    transition: color .15s, background .15s;
+  }
+  .lang-switch button:hover { color: var(--ink); background: var(--panel2); }
+  .lang-switch button.active { color: var(--accent); font-weight: 700; background: none; }
+  .lang-switch .sep { color: var(--grid); }
+
+  .panel {
+    flex: 0 0 340px;
+    background: var(--panel);
+    border-left: 1px solid var(--grid);
+    padding: 18px;
+    overflow-y: auto;
+    max-height: 100vh;
+  }
+  .panel h2 {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    margin: 18px 0 8px;
+    border-bottom: 1px solid var(--grid);
+    padding-bottom: 6px;
+  }
+  .panel h2:first-child { margin-top: 0; }
+
+  .expr {
+    background: var(--panel2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: "Cambria Math", "Times New Roman", serif;
+    font-size: 17px;
+    margin: 6px 0;
+    line-height: 1.6;
+    word-break: break-word;
+  }
+  math { font-size: 1.08em; vertical-align: -0.15em; }
+  .expr math { font-size: 1.12em; }
+  var { font-family: "Cambria Math", "Times New Roman", serif; font-style: italic; }
+  var sub, var sup { font-style: normal; }
+
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 8px 0;
+    font-size: 14px;
+  }
+  .row label { color: var(--muted); }
+  .row .val {
+    font-variant-numeric: tabular-nums;
+    font-family: "Consolas", monospace;
+    font-size: 14px;
+  }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .slider-row { margin: 10px 0; }
+  .slider-row .head {
+    display: flex; justify-content: space-between;
+    font-size: 13px; margin-bottom: 4px;
+  }
+  .slider-row .head .name { color: var(--ink); font-weight: 600; }
+  .slider-row .head .num {
+    font-family: "Consolas", monospace; color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .readout {
+    background: var(--panel2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: "Consolas", monospace;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  .readout .k { color: var(--muted); }
+  .readout .v { float: right; font-variant-numeric: tabular-nums; }
+  .readout .vr { font-variant-numeric: tabular-nums; color: var(--accent); }
+  .swatch { display:inline-block; width:11px; height:11px; border-radius:3px; vertical-align:middle; margin-right:6px; }
+
+  .note {
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--muted);
+  }
+  .note b { color: var(--ink); }
+  .legend { font-size: 12.5px; line-height: 1.9; color: var(--muted); }
+
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  .curve-btn-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  button {
+    background: var(--panel2);
+    color: var(--ink);
+    border: 1px solid var(--grid);
+    border-radius: 7px;
+    padding: 7px 11px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  button:hover { background: #2c3848; border-color: var(--accent); }
+  button.active { border-color: var(--accent); color: var(--accent); }
+  .curve-btn { padding: 6px 13px; font-size: 13px; font-weight: 600; }
+
+  .compliance {
+    margin-top: 16px; font-size: 11.5px; color: #6b7886;
+    line-height: 1.6; border-top: 1px dashed var(--grid); padding-top: 10px;
+  }
+
+  @media (max-width: 860px) {
+    .app { flex-direction: column; }
+    .panel { flex-basis: auto; border-left: none; border-top: 1px solid var(--grid); max-height: none; }
+    .canvas-wrap { min-height: 300px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="stage">
+    <div class="stage-header">
+      <h1 id="titleH1">圆锥曲线可视化实验室 — 椭圆 · 抛物线 · 双曲线</h1>
+      <div class="lang-switch">
+        <button id="btnZh" class="active" onclick="setLang('zh')">中文</button>
+        <span class="sep">|</span>
+        <button id="btnEn" onclick="setLang('en')">EN</button>
+      </div>
+    </div>
+    <p class="sub" id="subtitle">拖动曲线上的黄点 P 观察焦半径实时变化;切换曲线类型、调节滑块探索圆锥曲线族的几何性质。</p>
+    <div class="canvas-wrap">
+      <canvas id="cv"></canvas>
+    </div>
+  </div>
+
+  <aside class="panel">
+    <h2 id="h2CurveType">曲线类型</h2>
+    <div class="curve-btn-row">
+      <button id="btnEllipse" class="curve-btn active" onclick="setCurveType('ellipse')">椭圆</button>
+      <button id="btnParabola" class="curve-btn" onclick="setCurveType('parabola')">抛物线</button>
+      <button id="btnHyperbola" class="curve-btn" onclick="setCurveType('hyperbola')">双曲线</button>
+    </div>
+
+    <h2 id="h2Equation">标准方程</h2>
+    <div class="expr" id="equationBox"></div>
+    <div class="expr" id="eccBox"></div>
+
+    <h2 id="h2Readout">P 点焦半径（拖动黄点）</h2>
+    <div class="readout" id="readoutBox">
+      <div><span class="k" id="lblPF1k"></span><span class="v" id="roPF1">—</span></div>
+      <div><span class="k" id="lblPF2k"></span><span class="v" id="roPF2">—</span></div>
+      <div><span class="k" id="lblInvariantK"></span><span class="v vr" id="roInvariant">—</span></div>
+    </div>
+
+    <h2 id="h2Params">调整参数</h2>
+    <div id="sliderArea"></div>
+    <div class="btn-row" id="presetRow"></div>
+
+    <h2 id="h2Legend">图例与说明</h2>
+    <div class="legend" id="legendBox"></div>
+
+    <h2 id="h2Explain">概念说明</h2>
+    <p class="note" id="explainBox"></p>
+
+    <div class="compliance" id="complianceBox"></div>
+  </aside>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ========== i18n ==========
+  var I18N = {
+    zh: {
+      docTitle:   "圆锥曲线可视化实验室 · 椭圆 / 抛物线 / 双曲线",
+      titleH1:    "圆锥曲线可视化实验室 — 椭圆 · 抛物线 · 双曲线",
+      subtitle:   "拖动曲线上的黄点 P 观察焦半径实时变化;切换曲线类型、调节滑块探索圆锥曲线族的几何性质。",
+      h2CurveType:"曲线类型",
+      h2Equation: "标准方程",
+      h2Readout:  "P 点焦半径（拖动黄点）",
+      h2Params:   "调整参数",
+      h2Legend:   "图例与说明",
+      h2Explain:  "概念说明",
+      // 曲线类型按钮
+      btnEllipse:   "椭圆",
+      btnParabola:  "抛物线",
+      btnHyperbola: "双曲线",
+      // 读数标签 — 椭圆
+      ell_PF1: "|PF₁|（左焦半径）",
+      ell_PF2: "|PF₂|（右焦半径）",
+      ell_inv: "|PF₁|+|PF₂| = 2a（恒定）",
+      // 读数标签 — 双曲线
+      hyp_PF1: "|PF₁|（左焦半径）",
+      hyp_PF2: "|PF₂|（右焦半径）",
+      hyp_inv: "||PF₁|−|PF₂|| = 2a（恒定）",
+      // 读数标签 — 抛物线
+      par_PF:  "|PF|（焦半径）",
+      par_PD:  "|PD|（到准线距离）",
+      par_inv: "|PF| = |PD|（焦点准线距相等）",
+      // 滑块标签 — 椭圆/双曲线
+      lblA: "半长轴 a",
+      lblB: "半短轴 b（椭圆）/ 虚轴 b（双曲线）",
+      lblBhyp: "虚半轴 b",
+      // 滑块标签 — 抛物线
+      lblP: "焦准距 p（p > 0）",
+      // 预设按钮文字
+      preset_circle:    "圆 (e=0)",
+      preset_ellipse:   "扁椭圆",
+      preset_elongated: "长椭圆",
+      preset_parabola:  "标准抛物线",
+      preset_wide_par:  "宽口抛物线",
+      preset_hyp_eq:    "等轴双曲线",
+      preset_hyp_flat:  "宽双曲线",
+      // 图例
+      lg_curve:     '<span class="swatch" style="background:var(--curve)"></span>蓝色曲线:当前圆锥曲线',
+      lg_focus:     '<span class="swatch" style="background:var(--focus)"></span>橙色点:焦点 F₁ / F₂',
+      lg_P:         '<span class="swatch" style="background:var(--draggable)"></span>黄色点:可拖动点 P',
+      lg_r1:        '<span class="swatch" style="background:var(--focal-r1)"></span>绿线:|PF₁|（第一焦半径）',
+      lg_r2:        '<span class="swatch" style="background:var(--focal-r2)"></span>红线:|PF₂|（第二焦半径）',
+      lg_asym:      '<span class="swatch" style="background:var(--asymptote)"></span>紫色虚线:双曲线渐近线',
+      lg_dir:       '<span class="swatch" style="background:var(--directrix)"></span>粉色虚线:抛物线准线',
+      lg_dir_seg:   '<span class="swatch" style="background:var(--directrix)"></span>粉色线段:P 到准线的垂线',
+      // 说明段落
+      explain_ellipse:
+        '<b>椭圆</b>定义:平面内与两焦点 F₁、F₂ 距离之<b>和</b>为常数 2a（a > c > 0）的点的轨迹。<br>'
+      + '· 离心率 <b>e = c/a ∈ (0,1)</b>，e 越小越近似圆，e→1 时越扁。<br>'
+      + '· 标准方程（长轴在 x 轴）：<math><mrow><mfrac><msup><mi>x</mi><mn>2</mn></msup><msup><mi>a</mi><mn>2</mn></msup></mfrac><mo>+</mo><mfrac><msup><mi>y</mi><mn>2</mn></msup><msup><mi>b</mi><mn>2</mn></msup></mfrac><mo>=</mo><mn>1</mn></mrow></math>，关系式 b² = a² − c²。',
+      explain_parabola:
+        '<b>抛物线</b>定义:平面内与焦点 F 的距离等于到准线距离的点的轨迹。<br>'
+      + '· 离心率 <b>e = 1</b>（抛物线的标志性特征）。<br>'
+      + '· 标准方程（开口向右）：<math><mrow><msup><mi>y</mi><mn>2</mn></msup><mo>=</mo><mn>2</mn><mi>p</mi><mi>x</mi></mrow></math>，焦点 F(p/2, 0)，准线 x = −p/2。',
+      explain_hyperbola:
+        '<b>双曲线</b>定义:平面内与两焦点 F₁、F₂ 距离之<b>差的绝对值</b>为常数 2a（c > a > 0）的点的轨迹。<br>'
+      + '· 离心率 <b>e = c/a > 1</b>，e 越大曲线越"展开"，e→∞ 时趋近渐近线。<br>'
+      + '· 标准方程（实轴在 x 轴）：<math><mrow><mfrac><msup><mi>x</mi><mn>2</mn></msup><msup><mi>a</mi><mn>2</mn></msup></mfrac><mo>−</mo><mfrac><msup><mi>y</mi><mn>2</mn></msup><msup><mi>b</mi><mn>2</mn></msup></mfrac><mo>=</mo><mn>1</mn></mrow></math>，渐近线 y = ±(b/a)x。',
+      // 合规声明
+      compliance: '合规声明:本 demo 仅使用<b>自绘抽象曲线与可调参数</b>（圆锥曲线族）做概念可视化，未复制任何高考原题文字、原卷图片或答案图，不是题目搬运。'
+    },
+    en: {
+      docTitle:   "Conic Section Visual Lab · Ellipse / Parabola / Hyperbola",
+      titleH1:    "Conic Section Visual Lab — Ellipse · Parabola · Hyperbola",
+      subtitle:   "Drag the yellow point P to observe focal radii in real time; switch curve type and adjust sliders to explore the conic family.",
+      h2CurveType:"Curve Type",
+      h2Equation: "Standard Equation",
+      h2Readout:  "Focal Radii at P (drag yellow dot)",
+      h2Params:   "Adjust Parameters",
+      h2Legend:   "Legend & Notes",
+      h2Explain:  "Concept Notes",
+      btnEllipse:   "Ellipse",
+      btnParabola:  "Parabola",
+      btnHyperbola: "Hyperbola",
+      ell_PF1: "|PF₁| (left focal radius)",
+      ell_PF2: "|PF₂| (right focal radius)",
+      ell_inv: "|PF₁|+|PF₂| = 2a (constant)",
+      hyp_PF1: "|PF₁| (left focal radius)",
+      hyp_PF2: "|PF₂| (right focal radius)",
+      hyp_inv: "||PF₁|−|PF₂|| = 2a (constant)",
+      par_PF:  "|PF| (focal radius)",
+      par_PD:  "|PD| (distance to directrix)",
+      par_inv: "|PF| = |PD| (focus-directrix property)",
+      lblA: "Semi-major axis a",
+      lblB: "Semi-minor axis b",
+      lblBhyp: "Semi-conjugate axis b",
+      lblP: "Focal parameter p (p > 0)",
+      preset_circle:    "Circle (e=0)",
+      preset_ellipse:   "Flat ellipse",
+      preset_elongated: "Elongated ellipse",
+      preset_parabola:  "Standard parabola",
+      preset_wide_par:  "Wide parabola",
+      preset_hyp_eq:    "Rectangular hyperbola",
+      preset_hyp_flat:  "Flat hyperbola",
+      lg_curve:    '<span class="swatch" style="background:var(--curve)"></span>Blue curve: current conic section',
+      lg_focus:    '<span class="swatch" style="background:var(--focus)"></span>Orange dots: foci F₁ / F₂',
+      lg_P:        '<span class="swatch" style="background:var(--draggable)"></span>Yellow dot: draggable point P',
+      lg_r1:       '<span class="swatch" style="background:var(--focal-r1)"></span>Green line: |PF₁| (first focal radius)',
+      lg_r2:       '<span class="swatch" style="background:var(--focal-r2)"></span>Red line: |PF₂| (second focal radius)',
+      lg_asym:     '<span class="swatch" style="background:var(--asymptote)"></span>Purple dashed: asymptotes of hyperbola',
+      lg_dir:      '<span class="swatch" style="background:var(--directrix)"></span>Pink dashed: directrix of parabola',
+      lg_dir_seg:  '<span class="swatch" style="background:var(--directrix)"></span>Pink segment: perpendicular from P to directrix',
+      explain_ellipse:
+        'An <b>ellipse</b> is the locus of points where the <b>sum</b> of distances to two foci F₁ and F₂ equals the constant 2a (a > c > 0).<br>'
+      + '· Eccentricity <b>e = c/a ∈ (0, 1)</b>; smaller e means more circular, e → 1 means more elongated.<br>'
+      + '· Standard equation (major axis on x-axis): <math><mrow><mfrac><msup><mi>x</mi><mn>2</mn></msup><msup><mi>a</mi><mn>2</mn></msup></mfrac><mo>+</mo><mfrac><msup><mi>y</mi><mn>2</mn></msup><msup><mi>b</mi><mn>2</mn></msup></mfrac><mo>=</mo><mn>1</mn></mrow></math>, where b² = a² − c².',
+      explain_parabola:
+        'A <b>parabola</b> is the locus of points equidistant from a focus F and a directrix line.<br>'
+      + '· Eccentricity <b>e = 1</b> (the defining property of a parabola).<br>'
+      + '· Standard equation (rightward opening): <math><mrow><msup><mi>y</mi><mn>2</mn></msup><mo>=</mo><mn>2</mn><mi>p</mi><mi>x</mi></mrow></math>; focus F(p/2, 0), directrix x = −p/2.',
+      explain_hyperbola:
+        'A <b>hyperbola</b> is the locus of points where the <b>absolute difference</b> of distances to two foci F₁ and F₂ equals 2a (c > a > 0).<br>'
+      + '· Eccentricity <b>e = c/a > 1</b>; larger e means the branches open wider toward asymptotes.<br>'
+      + '· Standard equation (transverse axis on x-axis): <math><mrow><mfrac><msup><mi>x</mi><mn>2</mn></msup><msup><mi>a</mi><mn>2</mn></msup></mfrac><mo>−</mo><mfrac><msup><mi>y</mi><mn>2</mn></msup><msup><mi>b</mi><mn>2</mn></msup></mfrac><mo>=</mo><mn>1</mn></mrow></math>; asymptotes y = ±(b/a)x.',
+      compliance: 'Disclaimer: This demo uses only <b>abstract, self-drawn conic curves with adjustable parameters</b> for conceptual visualization. No original exam questions, scanned papers, or answer images have been reproduced.'
+    }
+  };
+
+  var currentLang = "zh";
+  var curveType = "ellipse"; // "ellipse" | "parabola" | "hyperbola"
+
+  // ========== 参数状态 ==========
+  // 椭圆/双曲线 a, b;  抛物线 p
+  var params = { a: 3, b: 2, p: 2 };
+
+  // 可拖动点 P 的角度参数(椭圆/双曲线用参数角,抛物线用 y 值)
+  var dragAngle = Math.PI / 4;   // 椭圆:x = a cosθ, y = b sinθ; 双曲线右支:x = a/cosθ
+  var dragY = 2;                  // 抛物线:y 参数
+
+  var dragging = false;
+
+  // ========== Canvas ==========
+  var canvas = document.getElementById("cv");
+  var ctx = canvas.getContext("2d");
+  var DPR = Math.max(1, window.devicePixelRatio || 1);
+  var W = 0, H = 0;
+  var view = { xMin: -6, xMax: 6, yMin: -5, yMax: 5 };
+
+  // ========== 坐标变换 ==========
+  function sx(x) { return (x - view.xMin) / (view.xMax - view.xMin) * W; }
+  function sy(y) { return H - (y - view.yMin) / (view.yMax - view.yMin) * H; }
+  function wx(px){ return view.xMin + px / W * (view.xMax - view.xMin); }
+  function wy(py){ return view.yMax - py / H * (view.yMax - view.yMin); }
+
+  function fitView() {
+    var aspect = H / W;
+    var xRange = view.xMax - view.xMin;
+    var yRange = xRange * aspect;
+    var cy = (view.yMin + view.yMax) / 2;
+    view.yMin = cy - yRange / 2;
+    view.yMax = cy + yRange / 2;
+  }
+
+  function resize() {
+    var rect = canvas.parentElement.getBoundingClientRect();
+    W = rect.width; H = rect.height;
+    canvas.width  = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    fitView();
+    draw();
+  }
+
+  // ========== 派生量 ==========
+  function derived() {
+    var a = params.a, b = params.b, p = params.p;
+    if (curveType === "ellipse") {
+      // 保证 a >= b > 0
+      var c = Math.sqrt(Math.max(0, a*a - b*b));
+      var e = c / a;
+      return { a: a, b: b, c: c, e: e };
+    } else if (curveType === "parabola") {
+      return { p: p, e: 1 };
+    } else { // hyperbola
+      var c2 = Math.sqrt(a*a + b*b);
+      var e2 = c2 / a;
+      return { a: a, b: b, c: c2, e: e2 };
+    }
+  }
+
+  // ========== 点 P 的坐标 ==========
+  function pointP() {
+    var d = derived();
+    if (curveType === "ellipse") {
+      var theta = dragAngle;
+      return { x: d.a * Math.cos(theta), y: d.b * Math.sin(theta) };
+    } else if (curveType === "parabola") {
+      // y² = 2p x  =>  x = y²/(2p)
+      var yy = dragY;
+      return { x: yy * yy / (2 * d.p), y: yy };
+    } else {
+      // 双曲线右支:x = a/cos(θ), y = b*tan(θ),  θ ∈ (-π/2, π/2)
+      var t = clamp(dragAngle, -1.4, 1.4);
+      var cosT = Math.cos(t);
+      if (Math.abs(cosT) < 0.01) cosT = 0.01;
+      return { x: d.a / cosT, y: d.b * Math.tan(t) };
+    }
+  }
+
+  // ========== 工具 ==========
+  function dist(ax, ay, bx, by) { var dx=ax-bx,dy=ay-by; return Math.sqrt(dx*dx+dy*dy); }
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+  function fmt(v) {
+    if (!isFinite(v)) return "—";
+    var r = Math.round(v * 1000) / 1000;
+    if (Math.abs(r) < 1e-9) r = 0;
+    return r.toFixed(Math.abs(r) < 10 ? 3 : 2).replace("-", "−");
+  }
+  var cssCache = {};
+  function getCss(name) {
+    if (cssCache[name]) return cssCache[name];
+    var v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    cssCache[name] = v; return v;
+  }
+  function niceStep(range, tgt) {
+    var raw = range / tgt;
+    var mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    var n = raw / mag;
+    var s = n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10;
+    return s * mag;
+  }
+
+  // ========== 绘制 ==========
+  function drawGrid() {
+    var stepX = niceStep(view.xMax - view.xMin, 10);
+    var stepY = niceStep(view.yMax - view.yMin, 10);
+    ctx.lineWidth = 1;
+    ctx.font = "11px Consolas, monospace";
+    ctx.textBaseline = "top";
+
+    ctx.strokeStyle = getCss("--grid");
+    var startX = Math.ceil(view.xMin / stepX) * stepX;
+    for (var gx = startX; gx <= view.xMax + 1e-9; gx += stepX) {
+      var px = sx(gx);
+      ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, H); ctx.stroke();
+    }
+    var startY = Math.ceil(view.yMin / stepY) * stepY;
+    for (var gy = startY; gy <= view.yMax + 1e-9; gy += stepY) {
+      var py = sy(gy);
+      ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(W, py); ctx.stroke();
+    }
+
+    ctx.strokeStyle = getCss("--axis");
+    ctx.lineWidth = 1.5;
+    var y0 = sy(0), x0p = sx(0);
+    ctx.beginPath(); ctx.moveTo(0, y0); ctx.lineTo(W, y0); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x0p, 0); ctx.lineTo(x0p, H); ctx.stroke();
+
+    ctx.fillStyle = getCss("--muted");
+    for (var lx = startX; lx <= view.xMax; lx += stepX) {
+      if (Math.abs(lx) < 1e-9) continue;
+      ctx.fillText(fmt(lx), sx(lx) + 2, y0 + 3);
+    }
+    ctx.textBaseline = "middle";
+    for (var ly = startY; ly <= view.yMax; ly += stepY) {
+      if (Math.abs(ly) < 1e-9) continue;
+      ctx.fillText(fmt(ly), x0p + 4, sy(ly));
+    }
+  }
+
+  function drawEllipse(d) {
+    var a = d.a, b = d.b;
+    ctx.beginPath();
+    var N = 300;
+    for (var i = 0; i <= N; i++) {
+      var theta = (i / N) * 2 * Math.PI;
+      var x = a * Math.cos(theta), y = b * Math.sin(theta);
+      if (i === 0) ctx.moveTo(sx(x), sy(y));
+      else ctx.lineTo(sx(x), sy(y));
+    }
+    ctx.closePath();
+    ctx.strokeStyle = getCss("--curve");
+    ctx.lineWidth = 2.4;
+    ctx.stroke();
+
+    // 焦点 F1(-c,0), F2(c,0)
+    drawFocus(-d.c, 0, "F₁");
+    drawFocus( d.c, 0, "F₂");
+
+    // 长轴 短轴 顶点注记
+    drawAxisLabel( d.a, 0, "a", "right");
+    drawAxisLabel( 0, d.b, "b", "top");
+  }
+
+  function drawParabola(d) {
+    var p = d.p;
+    // y² = 2p x
+    ctx.beginPath();
+    var N = 400;
+    for (var i = 0; i <= N; i++) {
+      var yy = view.yMin + (view.yMax - view.yMin) * (i / N);
+      var x = yy * yy / (2 * p);
+      if (x > view.xMax + 1) continue;
+      if (i === 0 || x > view.xMax) ctx.moveTo(sx(x), sy(yy));
+      else ctx.lineTo(sx(x), sy(yy));
+    }
+    ctx.strokeStyle = getCss("--curve");
+    ctx.lineWidth = 2.4;
+    ctx.stroke();
+
+    // 准线 x = -p/2
+    var xd = -p / 2;
+    ctx.strokeStyle = getCss("--directrix");
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([8, 5]);
+    ctx.beginPath();
+    ctx.moveTo(sx(xd), 0); ctx.lineTo(sx(xd), H);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // 标注准线
+    ctx.fillStyle = getCss("--directrix");
+    ctx.font = "12px 'Microsoft YaHei', sans-serif";
+    ctx.textAlign = "right";
+    ctx.textBaseline = "top";
+    ctx.fillText("x=−p/2", sx(xd) - 4, 8);
+    ctx.textAlign = "left";
+
+    // 焦点 F(p/2, 0)
+    drawFocus(p / 2, 0, "F");
+  }
+
+  function drawHyperbola(d) {
+    var a = d.a, b = d.b;
+
+    // 渐近线 y = ±(b/a)x
+    ctx.strokeStyle = getCss("--asymptote");
+    ctx.lineWidth = 1.4;
+    ctx.setLineDash([9, 5]);
+    var slope = b / a;
+    ctx.beginPath();
+    ctx.moveTo(sx(view.xMin), sy(slope * view.xMin));
+    ctx.lineTo(sx(view.xMax), sy(slope * view.xMax));
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(sx(view.xMin), sy(-slope * view.xMin));
+    ctx.lineTo(sx(view.xMax), sy(-slope * view.xMax));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // 渐近线标注
+    ctx.fillStyle = getCss("--asymptote");
+    ctx.font = "12px 'Microsoft YaHei', sans-serif";
+    ctx.textAlign = "right";
+    ctx.textBaseline = "bottom";
+    ctx.fillText("y=±(b/a)x", sx(view.xMax) - 4, sy(slope * view.xMax) + 2);
+    ctx.textAlign = "left";
+
+    // 曲线两支
+    ctx.strokeStyle = getCss("--curve");
+    ctx.lineWidth = 2.4;
+    // 右支
+    ctx.beginPath();
+    var N = 500;
+    var first = true;
+    for (var i = 0; i <= N; i++) {
+      var yy = view.yMin + (view.yMax - view.yMin) * (i / N);
+      var xSq = a * a * (1 + yy * yy / (b * b));
+      var x = Math.sqrt(xSq);
+      if (!isFinite(x) || x > view.xMax + 1) { first = true; continue; }
+      if (first) { ctx.moveTo(sx(x), sy(yy)); first = false; }
+      else ctx.lineTo(sx(x), sy(yy));
+    }
+    ctx.stroke();
+    // 左支
+    ctx.beginPath();
+    first = true;
+    for (var j = 0; j <= N; j++) {
+      var yy2 = view.yMin + (view.yMax - view.yMin) * (j / N);
+      var xSq2 = a * a * (1 + yy2 * yy2 / (b * b));
+      var x2 = -Math.sqrt(xSq2);
+      if (!isFinite(x2) || x2 < view.xMin - 1) { first = true; continue; }
+      if (first) { ctx.moveTo(sx(x2), sy(yy2)); first = false; }
+      else ctx.lineTo(sx(x2), sy(yy2));
+    }
+    ctx.stroke();
+
+    // 焦点
+    drawFocus(-d.c, 0, "F₁");
+    drawFocus( d.c, 0, "F₂");
+    // 顶点注记
+    drawAxisLabel(d.a, 0, "a", "right");
+  }
+
+  function drawFocus(x, y, label) {
+    var px = sx(x), py = sy(y);
+    ctx.fillStyle = getCss("--focus");
+    ctx.strokeStyle = "#0b0f14";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = getCss("--focus");
+    ctx.font = "italic 13px 'Cambria Math', serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.fillText(label, px, py + 8);
+    ctx.textAlign = "left";
+  }
+
+  function drawAxisLabel(x, y, label, pos) {
+    var px = sx(x), py = sy(y);
+    ctx.fillStyle = getCss("--muted");
+    ctx.font = "italic 12px 'Cambria Math', serif";
+    if (pos === "right")  { ctx.textAlign = "left";   ctx.textBaseline = "middle"; ctx.fillText(label, px + 6, py); }
+    if (pos === "top")    { ctx.textAlign = "center";  ctx.textBaseline = "bottom"; ctx.fillText(label, px, py - 4); }
+    ctx.textAlign = "left";
+  }
+
+  function drawFocalLines(P, d) {
+    if (curveType === "ellipse" || curveType === "hyperbola") {
+      // PF1 绿线
+      ctx.strokeStyle = getCss("--focal-r1");
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(sx(P.x), sy(P.y));
+      ctx.lineTo(sx(-d.c), sy(0));
+      ctx.stroke();
+      // PF2 红线
+      ctx.strokeStyle = getCss("--focal-r2");
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(sx(P.x), sy(P.y));
+      ctx.lineTo(sx(d.c), sy(0));
+      ctx.stroke();
+    } else {
+      // 抛物线: PF 绿线 + PD 粉线(到准线垂线)
+      var fx = d.p / 2;
+      ctx.strokeStyle = getCss("--focal-r1");
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(sx(P.x), sy(P.y));
+      ctx.lineTo(sx(fx), sy(0));
+      ctx.stroke();
+      // 到准线的垂线(水平线)
+      var xd = -d.p / 2;
+      ctx.strokeStyle = getCss("--directrix");
+      ctx.lineWidth = 1.8;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      ctx.moveTo(sx(P.x), sy(P.y));
+      ctx.lineTo(sx(xd), sy(P.y));
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // D 点小圆
+      ctx.fillStyle = getCss("--directrix");
+      ctx.beginPath(); ctx.arc(sx(xd), sy(P.y), 4, 0, Math.PI*2); ctx.fill();
+    }
+  }
+
+  function drawPointP(P) {
+    var px = sx(P.x), py = sy(P.y);
+    ctx.fillStyle = getCss("--draggable");
+    ctx.strokeStyle = "#1a1200";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(px, py, 8, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+    ctx.fillStyle = getCss("--ink");
+    ctx.font = "italic 13px 'Cambria Math', serif";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "bottom";
+    ctx.fillText("P", px + 11, py - 5);
+    ctx.font = "12px Consolas, monospace";
+    ctx.fillStyle = getCss("--muted");
+    ctx.fillText("(" + fmt(P.x) + ", " + fmt(P.y) + ")", px + 22, py - 5);
+    ctx.textAlign = "left";
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    drawGrid();
+    var d = derived();
+    var P = pointP();
+    if (curveType === "ellipse")   drawEllipse(d);
+    if (curveType === "parabola")  drawParabola(d);
+    if (curveType === "hyperbola") drawHyperbola(d);
+    drawFocalLines(P, d);
+    drawPointP(P);
+    updateReadout(P, d);
+    updateEquation(d);
+  }
+
+  // ========== 侧栏读数更新 ==========
+  function updateReadout(P, d) {
+    var L = I18N[currentLang];
+    if (curveType === "ellipse") {
+      var r1 = dist(P.x, P.y, -d.c, 0);
+      var r2 = dist(P.x, P.y,  d.c, 0);
+      document.getElementById("lblPF1k").textContent = L.ell_PF1;
+      document.getElementById("lblPF2k").textContent = L.ell_PF2;
+      document.getElementById("lblInvariantK").textContent = L.ell_inv;
+      document.getElementById("roPF1").textContent = fmt(r1);
+      document.getElementById("roPF2").textContent = fmt(r2);
+      document.getElementById("roInvariant").textContent = fmt(r1 + r2);
+    } else if (curveType === "parabola") {
+      var fx = d.p / 2;
+      var xd = -d.p / 2;
+      var pf = dist(P.x, P.y, fx, 0);
+      var pd = Math.abs(P.x - xd);
+      document.getElementById("lblPF1k").textContent = L.par_PF;
+      document.getElementById("lblPF2k").textContent = L.par_PD;
+      document.getElementById("lblInvariantK").textContent = L.par_inv;
+      document.getElementById("roPF1").textContent = fmt(pf);
+      document.getElementById("roPF2").textContent = fmt(pd);
+      document.getElementById("roInvariant").textContent = fmt(pf) + " = " + fmt(pd);
+    } else {
+      var r1h = dist(P.x, P.y, -d.c, 0);
+      var r2h = dist(P.x, P.y,  d.c, 0);
+      document.getElementById("lblPF1k").textContent = L.hyp_PF1;
+      document.getElementById("lblPF2k").textContent = L.hyp_PF2;
+      document.getElementById("lblInvariantK").textContent = L.hyp_inv;
+      document.getElementById("roPF1").textContent = fmt(r1h);
+      document.getElementById("roPF2").textContent = fmt(r2h);
+      document.getElementById("roInvariant").textContent = fmt(Math.abs(r1h - r2h));
+    }
+  }
+
+  function updateEquation(d) {
+    var eqBox = document.getElementById("equationBox");
+    var eccBox = document.getElementById("eccBox");
+    if (curveType === "ellipse") {
+      eqBox.innerHTML = '<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow>'
+        + '<mfrac><msup><mi>x</mi><mn>2</mn></msup><msup><mi>a</mi><mn>2</mn></msup></mfrac>'
+        + '<mo>+</mo>'
+        + '<mfrac><msup><mi>y</mi><mn>2</mn></msup><msup><mi>b</mi><mn>2</mn></msup></mfrac>'
+        + '<mo>=</mo><mn>1</mn>'
+        + '</mrow></math>'
+        + '<br><span style="font-size:13px;color:var(--muted);font-family:Consolas,monospace">'
+        + 'a=' + fmt(d.a) + '  b=' + fmt(d.b) + '  c=' + fmt(d.c) + '</span>';
+      eccBox.innerHTML = '<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow>'
+        + '<mi>e</mi><mo>=</mo>'
+        + '<mfrac><mi>c</mi><mi>a</mi></mfrac>'
+        + '</mrow></math>'
+        + '<span style="font-size:13px;color:var(--accent);font-family:Consolas,monospace"> = ' + fmt(d.e) + '</span>';
+    } else if (curveType === "parabola") {
+      eqBox.innerHTML = '<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow>'
+        + '<msup><mi>y</mi><mn>2</mn></msup><mo>=</mo><mn>2</mn><mi>p</mi><mi>x</mi>'
+        + '</mrow></math>'
+        + '<br><span style="font-size:13px;color:var(--muted);font-family:Consolas,monospace">'
+        + 'p=' + fmt(d.p) + '  2p=' + fmt(2*d.p) + '</span>';
+      eccBox.innerHTML = '<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow>'
+        + '<mi>e</mi><mo>=</mo><mn>1</mn>'
+        + '</mrow></math>';
+    } else {
+      eqBox.innerHTML = '<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow>'
+        + '<mfrac><msup><mi>x</mi><mn>2</mn></msup><msup><mi>a</mi><mn>2</mn></msup></mfrac>'
+        + '<mo>&#x2212;</mo>'
+        + '<mfrac><msup><mi>y</mi><mn>2</mn></msup><msup><mi>b</mi><mn>2</mn></msup></mfrac>'
+        + '<mo>=</mo><mn>1</mn>'
+        + '</mrow></math>'
+        + '<br><span style="font-size:13px;color:var(--muted);font-family:Consolas,monospace">'
+        + 'a=' + fmt(d.a) + '  b=' + fmt(d.b) + '  c=' + fmt(d.c) + '</span>';
+      eccBox.innerHTML = '<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow>'
+        + '<mi>e</mi><mo>=</mo>'
+        + '<mfrac><mi>c</mi><mi>a</mi></mfrac>'
+        + '</mrow></math>'
+        + '<span style="font-size:13px;color:var(--accent);font-family:Consolas,monospace"> = ' + fmt(d.e) + '</span>';
+    }
+  }
+
+  // ========== 滑块区域重建 ==========
+  function rebuildSliders() {
+    var L = I18N[currentLang];
+    var area = document.getElementById("sliderArea");
+    area.innerHTML = "";
+    if (curveType === "ellipse" || curveType === "hyperbola") {
+      var lblA = curveType === "ellipse" ? L.lblA : L.lblA;
+      var lblB = curveType === "ellipse" ? L.lblB : L.lblBhyp;
+      area.innerHTML =
+        sliderHTML("sA", lblA, "numA", 1, 5, 0.1, params.a) +
+        sliderHTML("sB", lblB, "numB", 0.5, 5, 0.1, params.b);
+      document.getElementById("sA").addEventListener("input", function() {
+        params.a = parseFloat(this.value);
+        // 椭圆: b 不得超过 a
+        if (curveType === "ellipse" && params.b > params.a) {
+          params.b = params.a;
+          document.getElementById("sB").value = params.b;
+          document.getElementById("numB").textContent = params.b.toFixed(2);
+        }
+        document.getElementById("numA").textContent = params.a.toFixed(2);
+        draw();
+      });
+      document.getElementById("sB").addEventListener("input", function() {
+        params.b = parseFloat(this.value);
+        if (curveType === "ellipse" && params.b > params.a) {
+          params.b = params.a;
+          this.value = params.b;
+        }
+        document.getElementById("numB").textContent = params.b.toFixed(2);
+        draw();
+      });
+    } else {
+      area.innerHTML = sliderHTML("sP", L.lblP, "numP", 0.5, 6, 0.1, params.p);
+      document.getElementById("sP").addEventListener("input", function() {
+        params.p = parseFloat(this.value);
+        document.getElementById("numP").textContent = params.p.toFixed(2);
+        draw();
+      });
+    }
+  }
+
+  function sliderHTML(id, label, numId, min, max, step, val) {
+    return '<div class="slider-row">'
+      + '<div class="head">'
+      + '<span class="name">' + label + '</span>'
+      + '<span class="num" id="' + numId + '">' + val.toFixed(2) + '</span>'
+      + '</div>'
+      + '<input type="range" id="' + id + '" min="' + min + '" max="' + max + '" step="' + step + '" value="' + val + '">'
+      + '</div>';
+  }
+
+  // ========== 预设按钮重建 ==========
+  var PRESETS = {
+    ellipse: [
+      { id:"p_circle",    params:{ a:3, b:3 }, dragAngle: Math.PI/4, label:"preset_circle" },
+      { id:"p_ellipse",   params:{ a:3, b:2 }, dragAngle: Math.PI/4, label:"preset_ellipse" },
+      { id:"p_elongated", params:{ a:4, b:1.5 }, dragAngle: Math.PI/5, label:"preset_elongated" }
+    ],
+    parabola: [
+      { id:"p_par_std",  params:{ p:2 }, dragY:2, label:"preset_parabola" },
+      { id:"p_par_wide", params:{ p:4 }, dragY:3, label:"preset_wide_par" }
+    ],
+    hyperbola: [
+      { id:"p_hyp_eq",   params:{ a:2, b:2 }, dragAngle:0.5, label:"preset_hyp_eq" },
+      { id:"p_hyp_flat", params:{ a:2, b:1 }, dragAngle:0.4, label:"preset_hyp_flat" }
+    ]
+  };
+  var activePresetId = "p_ellipse";
+
+  function rebuildPresets() {
+    var L = I18N[currentLang];
+    var row = document.getElementById("presetRow");
+    row.innerHTML = "";
+    var list = PRESETS[curveType];
+    list.forEach(function(pr) {
+      var btn = document.createElement("button");
+      btn.id = pr.id;
+      btn.textContent = L[pr.label];
+      btn.className = (pr.id === activePresetId) ? "active" : "";
+      btn.addEventListener("click", function() {
+        activePresetId = pr.id;
+        Object.assign(params, pr.params);
+        if (curveType === "parabola") dragY = pr.dragY || 2;
+        else dragAngle = pr.dragAngle || Math.PI/4;
+        // 同步滑块
+        syncSliders();
+        markActivePreset();
+        draw();
+      });
+      row.appendChild(btn);
+    });
+  }
+
+  function markActivePreset() {
+    var list = PRESETS[curveType];
+    list.forEach(function(pr) {
+      var btn = document.getElementById(pr.id);
+      if (btn) btn.className = (pr.id === activePresetId) ? "active" : "";
+    });
+  }
+
+  function syncSliders() {
+    if (curveType === "ellipse" || curveType === "hyperbola") {
+      var sA = document.getElementById("sA"), sB = document.getElementById("sB");
+      if (sA) { sA.value = params.a; document.getElementById("numA").textContent = params.a.toFixed(2); }
+      if (sB) { sB.value = params.b; document.getElementById("numB").textContent = params.b.toFixed(2); }
+    } else {
+      var sP = document.getElementById("sP");
+      if (sP) { sP.value = params.p; document.getElementById("numP").textContent = params.p.toFixed(2); }
+    }
+  }
+
+  // ========== 图例与说明区域 ==========
+  function updateLegend() {
+    var L = I18N[currentLang];
+    var lb = document.getElementById("legendBox");
+    var lines = [L.lg_curve, L.lg_P];
+    if (curveType === "ellipse" || curveType === "hyperbola") {
+      lines.push(L.lg_focus, L.lg_r1, L.lg_r2);
+    } else {
+      lines.push(L.lg_focus, L.lg_r1, L.lg_dir, L.lg_dir_seg);
+    }
+    if (curveType === "hyperbola") lines.push(L.lg_asym);
+    lb.innerHTML = lines.join("<br>");
+  }
+
+  function updateExplain() {
+    var L = I18N[currentLang];
+    var key = "explain_" + curveType;
+    document.getElementById("explainBox").innerHTML = L[key];
+  }
+
+  // ========== 曲线切换 ==========
+  window.setCurveType = function(type) {
+    curveType = type;
+    // 重置拖动点到合理位置
+    if (type === "ellipse")   { dragAngle = Math.PI / 4; params.a = 3; params.b = 2; activePresetId = "p_ellipse"; }
+    if (type === "parabola")  { dragY = 2; params.p = 2; activePresetId = "p_par_std"; }
+    if (type === "hyperbola") { dragAngle = 0.5; params.a = 2; params.b = 2; activePresetId = "p_hyp_eq"; }
+    // 按钮状态
+    ["btnEllipse","btnParabola","btnHyperbola"].forEach(function(id) {
+      document.getElementById(id).classList.remove("active");
+    });
+    var map = { ellipse:"btnEllipse", parabola:"btnParabola", hyperbola:"btnHyperbola" };
+    document.getElementById(map[type]).classList.add("active");
+    rebuildSliders();
+    syncSliders();
+    rebuildPresets();
+    updateLegend();
+    updateExplain();
+    draw();
+  };
+
+  // ========== 语言切换 ==========
+  window.setLang = function(lang) {
+    if (lang === currentLang) return;
+    currentLang = lang;
+    document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
+    document.getElementById("btnZh").classList.toggle("active", lang === "zh");
+    document.getElementById("btnEn").classList.toggle("active", lang === "en");
+    applyLang();
+    draw();
+  };
+
+  function t(k) { return I18N[currentLang][k]; }
+
+  function applyLang() {
+    var L = I18N[currentLang];
+    document.title = L.docTitle;
+    document.getElementById("titleH1").textContent = L.titleH1;
+    document.getElementById("subtitle").textContent = L.subtitle;
+    document.getElementById("h2CurveType").textContent = L.h2CurveType;
+    document.getElementById("h2Equation").textContent = L.h2Equation;
+    document.getElementById("h2Readout").textContent = L.h2Readout;
+    document.getElementById("h2Params").textContent = L.h2Params;
+    document.getElementById("h2Legend").textContent = L.h2Legend;
+    document.getElementById("h2Explain").textContent = L.h2Explain;
+    document.getElementById("btnEllipse").textContent = L.btnEllipse;
+    document.getElementById("btnParabola").textContent = L.btnParabola;
+    document.getElementById("btnHyperbola").textContent = L.btnHyperbola;
+    // 重建滑块标签(标签文字含语言)
+    rebuildSliders();
+    syncSliders();
+    rebuildPresets();
+    updateLegend();
+    updateExplain();
+    document.getElementById("complianceBox").innerHTML = L.compliance;
+  }
+
+  // ========== 交互:拖动点 P ==========
+  function getPointerPos(evt) {
+    var rect = canvas.getBoundingClientRect();
+    var clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+    var clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+    return { px: clientX - rect.left, py: clientY - rect.top };
+  }
+
+  function nearP(evt) {
+    var pos = getPointerPos(evt);
+    var P = pointP();
+    var dx = pos.px - sx(P.x), dy = pos.py - sy(P.y);
+    return Math.sqrt(dx*dx + dy*dy) < 24;
+  }
+
+  function updateDragFromPointer(evt) {
+    var pos = getPointerPos(evt);
+    var mx = wx(pos.px), my = wy(pos.py);
+    var d = derived();
+    if (curveType === "ellipse") {
+      // 投影鼠标位置到椭圆上,用角度参数化
+      dragAngle = Math.atan2(my / d.b, mx / d.a);
+    } else if (curveType === "parabola") {
+      dragY = clamp(my, view.yMin + 0.1, view.yMax - 0.1);
+    } else {
+      // 双曲线右支:由 x 求角度
+      if (mx <= d.a + 0.1) mx = d.a + 0.1;
+      if (mx > view.xMax - 0.1) mx = view.xMax - 0.1;
+      dragAngle = clamp(Math.acos(d.a / mx), -1.4, 1.4);
+      if (my < 0) dragAngle = -Math.abs(dragAngle);
+    }
+  }
+
+  function startDrag(evt) {
+    dragging = true;
+    canvas.classList.add("dragging");
+    updateDragFromPointer(evt);
+    draw();
+    evt.preventDefault();
+  }
+  function moveDrag(evt) {
+    if (!dragging) return;
+    updateDragFromPointer(evt);
+    draw();
+    evt.preventDefault();
+  }
+  function endDrag() { dragging = false; canvas.classList.remove("dragging"); }
+
+  canvas.addEventListener("mousedown", startDrag);
+  window.addEventListener("mousemove", moveDrag);
+  window.addEventListener("mouseup", endDrag);
+  canvas.addEventListener("touchstart", startDrag, { passive: false });
+  canvas.addEventListener("touchmove", moveDrag, { passive: false });
+  window.addEventListener("touchend", endDrag);
+
+  // ========== 启动 ==========
+  applyLang();
+  // 初始曲线为椭圆,手动同步按钮
+  document.getElementById("btnEllipse").classList.add("active");
+  window.addEventListener("resize", resize);
+  resize();
+})();
+</script>
+</body>
+</html>

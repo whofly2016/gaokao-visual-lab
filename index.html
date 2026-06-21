@@ -7,32 +7,33 @@
   <style>
     :root{
       --bg:#f6f7f9;--panel:#fff;--ink:#20242a;--muted:#66707c;--line:#dde3ea;
-      --blue:#2457e6;--green:#16845b;--violet:#6741a8;--cyan:#087f8c;
+      --blue:#2457e6;--green:#16845b;--violet:#6741a8;--cyan:#087f8c;--amber:#a96500;--red:#b63535;
       --shadow:0 10px 24px rgba(25,33,46,.08);
     }
     *{box-sizing:border-box}
     body{margin:0;background:var(--bg);color:var(--ink);
       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",Arial,sans-serif;line-height:1.58}
-    .shell{max-width:1100px;margin:0 auto;padding:36px 20px 56px}
+    .shell{max-width:1180px;margin:0 auto;padding:36px 20px 56px}
     h1{font-size:34px;margin:0 0 10px}
-    .sub{color:var(--muted);font-size:16px;max-width:760px;margin:0}
+    .sub{color:var(--muted);font-size:16px;max-width:820px;margin:0}
     .note{margin-top:14px;padding:12px 14px;border-left:4px solid var(--green);background:#f5fbf8;font-size:14px}
-    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:28px}
+    .group{margin-top:30px}
+    .group h2{font-size:18px;margin:0 0 14px;padding-left:10px;border-left:4px solid var(--blue)}
+    .group.phys h2{border-left-color:var(--violet)}
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
     .card{background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow);
       border-top:5px solid var(--blue);padding:18px;display:flex;flex-direction:column}
-    .card:nth-child(2){border-top-color:var(--violet)}
-    .card:nth-child(3){border-top-color:var(--cyan)}
+    .card.t-math{border-top-color:var(--blue)} .card.t-math2{border-top-color:var(--cyan)}
+    .card.t-phys{border-top-color:var(--violet)} .card.t-prob{border-top-color:var(--amber)}
     .tag{display:inline-block;align-self:flex-start;padding:2px 10px;border-radius:999px;color:#fff;font-size:12px;font-weight:800;margin-bottom:10px}
-    .t-math{background:var(--blue)}.t-phys{background:var(--violet)}.t-math2{background:var(--cyan)}
-    .card h3{margin:0 0 6px;font-size:18px}
-    .card code{background:#eef1f5;padding:1px 6px;border-radius:4px;font-size:12px}
-    .card p{color:var(--muted);font-size:14px;margin:10px 0 0}
-    .card ul{margin:10px 0 0;padding-left:18px;font-size:13px;color:var(--ink)}
-    .card .open{margin-top:16px}
+    .b-math{background:var(--blue)} .b-math2{background:var(--cyan)} .b-phys{background:var(--violet)} .b-prob{background:var(--amber)}
+    .card h3{margin:0 0 6px;font-size:17px}
+    .card code{background:#eef1f5;padding:1px 6px;border-radius:4px;font-size:12px;word-break:break-all}
+    .card p{color:var(--muted);font-size:13px;margin:10px 0 0}
+    .card .open{margin-top:14px}
     .card a.btn{display:inline-block;padding:9px 16px;background:var(--blue);color:#fff;text-decoration:none;border-radius:6px;font-weight:700;font-size:14px}
-    .card:nth-child(2) a.btn{background:var(--violet)}
-    .card:nth-child(3) a.btn{background:var(--cyan)}
-    .meta{margin-top:8px;font-size:12px;color:var(--muted)}
+    .card.t-math2 a.btn{background:var(--cyan)} .card.t-phys a.btn{background:var(--violet)} .card.t-prob a.btn{background:var(--amber)}
+    .meta{margin-top:6px;font-size:12px;color:var(--muted)}
     footer{margin-top:30px;color:var(--muted);font-size:13px;text-align:right}
     .compliance{margin-top:26px;padding:14px;border:1px solid var(--line);background:#fbfcfe;font-size:13px;color:var(--muted)}
     @media(max-width:860px){.grid{grid-template-columns:1fr}}
@@ -41,55 +42,82 @@
 <body>
   <div class="shell">
     <h1>Gaokao Visual Lab · Demo 实验室</h1>
-    <p class="sub">围绕高考核心概念的交互式可视化 demo。每个 demo 都是<strong>单文件、零依赖、双击即开</strong>,只用自绘抽象模型,不含任何原题文字或图片。</p>
-    <div class="note">首批 3 个 demo 已全部完成并经浏览器验证(2026-06-22):2 个高考数学 + 1 个高考物理,达成 30 天目标的 demo 要求。</div>
+    <p class="sub">围绕高考核心概念的交互式可视化 demo,正在长成一个可学、可被 AI 查阅的知识体系。每个 demo 都是<strong>单文件、零依赖、双击即开</strong>,支持<strong>中 / EN 双语</strong>(右上角切换),只用自绘抽象模型,不含任何原题或图片。</p>
+    <div class="note">首批 8 个 demo:6 个高考数学 + 2 个高考物理,覆盖 导数 / 向量 / 解析几何 / 三角函数 / 立体几何 / 概率统计 / 运动学 / 电磁。</div>
 
-    <div class="grid">
-      <article class="card">
-        <span class="tag t-math">数学</span>
-        <h3>导数可视化实验室</h3>
-        <div class="meta"><code>gaokao-derivative-extrema-lab</code></div>
-        <p>拖动曲线上的点观察切线随导数变化,理解导数→切线斜率→单调性→极值的链条。</p>
-        <ul>
-          <li>自绘三次函数 f(x)=ax³+bx²+cx+d</li>
-          <li>切线 / 单调区间绿红分段 / 极值标注</li>
-          <li>a·b·c·d 滑块 + 预设</li>
-        </ul>
-        <div class="open"><a class="btn" href="./gaokao-derivative-extrema-lab/index.html">打开 demo →</a></div>
-      </article>
+    <div class="group math">
+      <h2>数学</h2>
+      <div class="grid">
+        <article class="card t-math">
+          <span class="tag b-math">导数</span>
+          <h3>导数可视化实验室</h3>
+          <div class="meta"><code>gaokao-derivative-extrema-lab</code></div>
+          <p>拖点看切线随导数变化,单调区间绿红分段,极值标注。导数→切线斜率→单调→极值。</p>
+          <div class="open"><a class="btn" href="./gaokao-derivative-extrema-lab/index.html">打开 demo →</a></div>
+        </article>
+        <article class="card t-math">
+          <span class="tag b-math">向量</span>
+          <h3>向量投影实验室</h3>
+          <div class="meta"><code>gaokao-vector-projection-lab</code></div>
+          <p>拖向量看点乘 / 投影 / 夹角;力的分解模式(切向 / 法向)。</p>
+          <div class="open"><a class="btn" href="./gaokao-vector-projection-lab/index.html">打开 demo →</a></div>
+        </article>
+        <article class="card t-math2">
+          <span class="tag b-math2">解析几何</span>
+          <h3>圆锥曲线实验室</h3>
+          <div class="meta"><code>gaokao-conic-section-lab</code></div>
+          <p>椭圆 / 抛物线 / 双曲线切换,焦点、焦半径、离心率,曲线上可拖点。</p>
+          <div class="open"><a class="btn" href="./gaokao-conic-section-lab/index.html">打开 demo →</a></div>
+        </article>
+        <article class="card t-math2">
+          <span class="tag b-math2">三角函数</span>
+          <h3>三角函数与波实验室</h3>
+          <div class="meta"><code>gaokao-wave-phase-lab</code></div>
+          <p>单位圆 ↔ 正弦波同步,A / ω / φ 滑块看振幅 / 周期 / 相位,两波叠加干涉。</p>
+          <div class="open"><a class="btn" href="./gaokao-wave-phase-lab/index.html">打开 demo →</a></div>
+        </article>
+        <article class="card t-math2">
+          <span class="tag b-math2">立体几何</span>
+          <h3>立体几何实验室</h3>
+          <div class="meta"><code>gaokao-solid-geometry-3d</code></div>
+          <p>伪 3D 立方体可旋转,空间向量、线面角、截面多边形与法向量。</p>
+          <div class="open"><a class="btn" href="./gaokao-solid-geometry-3d/index.html">打开 demo →</a></div>
+        </article>
+        <article class="card t-prob">
+          <span class="tag b-prob">概率统计</span>
+          <h3>概率统计实验室</h3>
+          <div class="meta"><code>gaokao-probability-sampling-lab</code></div>
+          <p>采样动画累积成直方图逼近分布,样本均值收敛(大数定律),期望与方差。</p>
+          <div class="open"><a class="btn" href="./gaokao-probability-sampling-lab/index.html">打开 demo →</a></div>
+        </article>
+      </div>
+    </div>
 
-      <article class="card">
-        <span class="tag t-phys">物理</span>
-        <h3>抛体运动 3D 实验室</h3>
-        <div class="meta"><code>gaokao-projectile-motion-3d</code></div>
-        <p>伪 3D 透视场景中观察抛体轨迹、速度分解与落点预测,理解水平匀速 + 竖直匀变速的合成。</p>
-        <ul>
-          <li>可调 v₀ / 抛射角 θ / g / 初高 h₀</li>
-          <li>速度分解(水平 vₓ / 竖直 v_y / 合速度)</li>
-          <li>飞行时间 / 射程 / 最大高度 + 动画</li>
-        </ul>
-        <div class="open"><a class="btn" href="./gaokao-projectile-motion-3d/index.html">打开 demo →</a></div>
-      </article>
-
-      <article class="card">
-        <span class="tag t-math2">数学</span>
-        <h3>向量投影实验室</h3>
-        <div class="meta"><code>gaokao-vector-projection-lab</code></div>
-        <p>拖动向量观察点乘、投影与夹角;切换到力的分解模式理解正交分解。</p>
-        <ul>
-          <li>可拖动向量 a / b,点乘 / 投影 / 夹角实时</li>
-          <li>力的分解(斜面切向 / 法向)+ 倾角滑块</li>
-          <li>公式与数值联动 + 预设</li>
-        </ul>
-        <div class="open"><a class="btn" href="./gaokao-vector-projection-lab/index.html">打开 demo →</a></div>
-      </article>
+    <div class="group phys">
+      <h2>物理</h2>
+      <div class="grid">
+        <article class="card t-phys">
+          <span class="tag b-phys">运动学</span>
+          <h3>抛体运动 3D 实验室</h3>
+          <div class="meta"><code>gaokao-projectile-motion-3d</code></div>
+          <p>伪 3D 透视轨迹,速度分解(水平匀速 + 竖直匀变速),落点 / 射程 / 最大高度预测。</p>
+          <div class="open"><a class="btn" href="./gaokao-projectile-motion-3d/index.html">打开 demo →</a></div>
+        </article>
+        <article class="card t-phys">
+          <span class="tag b-phys">电磁</span>
+          <h3>电场实验室</h3>
+          <div class="meta"><code>gaokao-electric-field-lab</code></div>
+          <p>可拖点电荷,电场线 / 矢量叠加 / 等势线,试探电荷显示场强方向。</p>
+          <div class="open"><a class="btn" href="./gaokao-electric-field-lab/index.html">打开 demo →</a></div>
+        </article>
+      </div>
     </div>
 
     <div class="compliance">
       <strong>合规声明:</strong>所有 demo 仅使用自绘抽象函数 / 向量 / 物理参数做概念可视化,未复制任何高考原题文字、原卷图片或答案图,不打包任何原卷文件。所有题源与核验类资料仅用于内部研究、不公开再分发;本站只发布自绘 demo。
     </div>
 
-    <footer>Gaokao Visual Lab · 首批 demo 入口 · 更新 2026-06-22</footer>
+    <footer>Gaokao Visual Lab · 首批 8 demo 入口 · 更新 2026-06-22</footer>
   </div>
 </body>
 </html>

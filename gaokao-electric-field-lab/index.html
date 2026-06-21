@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>电场可视化实验室 · 场线 / 等势线 / 叠加</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --panel: #1a212b;
+    --panel2: #232c38;
+    --ink: #e6edf3;
+    --muted: #93a1b1;
+    --accent: #4fc3f7;
+    --grid: #2a3441;
+    --axis: #5b6b7b;
+    --pos: #ff6b6b;       /* 正电荷 */
+    --neg: #5dade2;       /* 负电荷 */
+    --field: #ffd166;     /* 电场矢量箭头 */
+    --equipot: #58d68d;   /* 等势线 */
+    --probe: #c39bd3;     /* 试探点 */
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    height: 100%;
+  }
+  .app {
+    display: flex;
+    flex-direction: row;
+    min-height: 100vh;
+  }
+  .stage {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    min-width: 0;
+  }
+  .stage-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+  .stage h1 {
+    font-size: 18px;
+    margin: 0;
+    font-weight: 600;
+  }
+  .stage .sub {
+    color: var(--muted);
+    font-size: 13px;
+    margin: 0 0 12px 0;
+  }
+  .canvas-wrap {
+    position: relative;
+    flex: 1 1 auto;
+    background: #0b0f14;
+    border: 1px solid var(--grid);
+    border-radius: 10px;
+    overflow: hidden;
+    min-height: 360px;
+  }
+  canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+  canvas.dragging { cursor: grabbing; }
+
+  /* 语言切换按钮 */
+  .lang-switch {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .lang-switch button {
+    background: none;
+    border: none;
+    padding: 2px 6px;
+    font-size: 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--muted);
+    transition: color .15s, background .15s;
+  }
+  .lang-switch button:hover { color: var(--ink); background: var(--panel2); }
+  .lang-switch button.active { color: var(--accent); font-weight: 700; background: none; }
+  .lang-switch .sep { color: var(--grid); }
+
+  .panel {
+    flex: 0 0 340px;
+    background: var(--panel);
+    border-left: 1px solid var(--grid);
+    padding: 18px;
+    overflow-y: auto;
+    max-height: 100vh;
+  }
+  .panel h2 {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    margin: 18px 0 8px;
+    border-bottom: 1px solid var(--grid);
+    padding-bottom: 6px;
+  }
+  .panel h2:first-child { margin-top: 0; }
+
+  .expr {
+    background: var(--panel2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: "Cambria Math", "Times New Roman", serif;
+    font-size: 16px;
+    margin: 6px 0;
+    line-height: 1.7;
+    word-break: break-word;
+  }
+  math { font-size: 1.05em; vertical-align: -0.15em; }
+  .expr math { font-size: 1.10em; }
+  var { font-family: "Cambria Math", "Times New Roman", serif; font-style: italic; }
+
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 8px 0;
+    font-size: 14px;
+  }
+  .row label { color: var(--muted); }
+  .row .val {
+    font-variant-numeric: tabular-nums;
+    font-family: "Consolas", monospace;
+    font-size: 14px;
+  }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .slider-row { margin: 10px 0; }
+  .slider-row .head {
+    display: flex; justify-content: space-between;
+    font-size: 13px; margin-bottom: 4px;
+  }
+  .slider-row .head .name { color: var(--ink); font-weight: 600; }
+  .slider-row .head .num {
+    font-family: "Consolas", monospace; color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .readout {
+    background: var(--panel2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: "Consolas", monospace;
+    font-size: 13px;
+    line-height: 1.8;
+  }
+  .readout .k { color: var(--muted); }
+  .readout .v { float: right; font-variant-numeric: tabular-nums; }
+  .swatch { display:inline-block; width:11px; height:11px; border-radius:3px; vertical-align:middle; margin-right:6px; }
+
+  .note {
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--muted);
+  }
+  .note b { color: var(--ink); }
+  .legend { font-size: 12.5px; line-height: 1.95; color: var(--muted); }
+
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  button {
+    background: var(--panel2);
+    color: var(--ink);
+    border: 1px solid var(--grid);
+    border-radius: 7px;
+    padding: 7px 11px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  button:hover { background: #2c3848; border-color: var(--accent); }
+  button.active { border-color: var(--accent); color: var(--accent); }
+
+  /* 电荷控件行 */
+  .charge-ctrl {
+    background: var(--panel2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin: 6px 0;
+  }
+  .charge-ctrl .ctitle {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .charge-ctrl .ctitle .dot {
+    display: inline-block;
+    width: 13px; height: 13px;
+    border-radius: 50%;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+  .sign-btn {
+    padding: 3px 10px;
+    font-size: 13px;
+    border-radius: 5px;
+  }
+  .sign-btn.pos { border-color: var(--pos); color: var(--pos); }
+  .sign-btn.neg { border-color: var(--neg); color: var(--neg); }
+
+  /* 等势线开关 */
+  .toggle-row {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px; margin: 8px 0;
+  }
+  input[type=checkbox] { accent-color: var(--equipot); width: 15px; height: 15px; cursor: pointer; }
+
+  .compliance {
+    margin-top: 16px; font-size: 11.5px; color: #6b7886;
+    line-height: 1.6; border-top: 1px dashed var(--grid); padding-top: 10px;
+  }
+
+  @media (max-width: 860px) {
+    .app { flex-direction: column; }
+    .panel { flex-basis: auto; border-left: none; border-top: 1px solid var(--grid); max-height: none; }
+    .canvas-wrap { min-height: 300px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="stage">
+    <div class="stage-header">
+      <h1 id="titleH1">电场可视化实验室 — 场线 · 等势线 · 叠加</h1>
+      <div class="lang-switch">
+        <button id="btnZh" class="active" onclick="setLang('zh')">中文</button>
+        <span class="sep">|</span>
+        <button id="btnEn" onclick="setLang('en')">EN</button>
+      </div>
+    </div>
+    <p class="sub" id="subtitle">拖动画布中的电荷改变位置;紫色试探点可拖动查看该点的合场强方向与大小。</p>
+    <div class="canvas-wrap">
+      <canvas id="cv"></canvas>
+    </div>
+  </div>
+
+  <aside class="panel">
+    <h2 id="h2Formula">核心公式</h2>
+    <div class="expr" id="formulaE">
+      <!-- MathML: E = kq/r² -->
+      <math xmlns="http://www.w3.org/1998/Math/MathML">
+        <mrow>
+          <mi>E</mi><mo>=</mo>
+          <mfrac>
+            <mrow><mi>k</mi><mo>|</mo><mi>q</mi><mo>|</mo></mrow>
+            <msup><mi>r</mi><mn>2</mn></msup>
+          </mfrac>
+        </mrow>
+      </math>
+    </div>
+    <div class="expr" id="formulaSuper">
+      <!-- MathML: E_total = E_1 + E_2 (vector sum) -->
+      <math xmlns="http://www.w3.org/1998/Math/MathML">
+        <mrow>
+          <msub><mover accent="true"><mi>E</mi><mo>&#x20D7;</mo></mover><mtext>合</mtext></msub>
+          <mo>=</mo>
+          <msub><mover accent="true"><mi>E</mi><mo>&#x20D7;</mo></mover><mn>1</mn></msub>
+          <mo>+</mo>
+          <msub><mover accent="true"><mi>E</mi><mo>&#x20D7;</mo></mover><mn>2</mn></msub>
+        </mrow>
+      </math>
+    </div>
+
+    <h2 id="h2Charges">电荷参数</h2>
+
+    <!-- 电荷 1 -->
+    <div class="charge-ctrl" id="ctrl1">
+      <div class="ctitle">
+        <span class="dot" id="dot1" style="background:var(--pos)"></span>
+        <span id="lbl1">电荷 1（拖动红圆改变位置）</span>
+      </div>
+      <div class="slider-row">
+        <div class="head">
+          <span class="name" id="lblQ1">电荷量 q₁</span>
+          <span class="num" id="numQ1">+2.0</span>
+        </div>
+        <input type="range" id="sQ1" min="-5" max="5" step="0.1" value="2">
+      </div>
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <button class="sign-btn pos" id="btnPos1" onclick="setSign(1,1)">+</button>
+        <button class="sign-btn neg" id="btnNeg1" onclick="setSign(1,-1)">−</button>
+      </div>
+    </div>
+
+    <!-- 电荷 2 -->
+    <div class="charge-ctrl" id="ctrl2">
+      <div class="ctitle">
+        <span class="dot" id="dot2" style="background:var(--neg)"></span>
+        <span id="lbl2">电荷 2（拖动蓝圆改变位置）</span>
+      </div>
+      <div class="slider-row">
+        <div class="head">
+          <span class="name" id="lblQ2">电荷量 q₂</span>
+          <span class="num" id="numQ2">−2.0</span>
+        </div>
+        <input type="range" id="sQ2" min="-5" max="5" step="0.1" value="-2">
+      </div>
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <button class="sign-btn pos" id="btnPos2" onclick="setSign(2,1)">+</button>
+        <button class="sign-btn neg" id="btnNeg2" onclick="setSign(2,-1)">−</button>
+      </div>
+    </div>
+
+    <!-- 等势线开关 -->
+    <div class="toggle-row">
+      <input type="checkbox" id="chkEquipot" checked>
+      <label for="chkEquipot" id="lblEquipot">显示等势线（绿色轮廓线）</label>
+    </div>
+    <div class="toggle-row">
+      <input type="checkbox" id="chkArrows" checked>
+      <label for="chkArrows" id="lblArrows">显示电场矢量（网格箭头）</label>
+    </div>
+
+    <h2 id="h2Presets">预设场景</h2>
+    <div class="btn-row">
+      <button id="presetSP" class="active" onclick="applyPreset('single_pos')">
+        <span id="pSP">单正电荷</span>
+      </button>
+      <button id="presetSN" onclick="applyPreset('single_neg')">
+        <span id="pSN">单负电荷</span>
+      </button>
+      <button id="presetDipole" onclick="applyPreset('dipole')">
+        <span id="pDipole">等量异号（偶极子）</span>
+      </button>
+      <button id="presetSame" onclick="applyPreset('same_sign')">
+        <span id="pSame">等量同号</span>
+      </button>
+    </div>
+
+    <h2 id="h2Probe">试探点读数</h2>
+    <div class="readout">
+      <div>
+        <span class="k" id="lblProbePos">坐标</span>
+        <span class="v" id="roProbePos">(0.0, 0.0)</span>
+      </div>
+      <div>
+        <span class="k" id="lblProbeE">|E| 相对大小</span>
+        <span class="v" id="roProbeE">—</span>
+      </div>
+      <div>
+        <span class="k" id="lblProbeAngle">场强方向（角度）</span>
+        <span class="v" id="roProbeAngle">—</span>
+      </div>
+      <div>
+        <span class="k" id="lblProbeEx">E<sub>x</sub> 分量</span>
+        <span class="v" id="roProbeEx">—</span>
+      </div>
+      <div>
+        <span class="k" id="lblProbeEy">E<sub>y</sub> 分量</span>
+        <span class="v" id="roProbeEy">—</span>
+      </div>
+    </div>
+
+    <h2 id="h2Legend">图例</h2>
+    <div class="legend" id="legendBox">
+      <span class="swatch" style="background:var(--pos)"></span><span id="lgPos">红圆：正电荷（场线向外辐射）</span><br>
+      <span class="swatch" style="background:var(--neg)"></span><span id="lgNeg">蓝圆：负电荷（场线向内汇聚）</span><br>
+      <span class="swatch" style="background:var(--field)"></span><span id="lgField">黄色箭头：各采样点的合电场方向</span><br>
+      <span class="swatch" style="background:var(--equipot)"></span><span id="lgEquipot">绿色曲线：等势线（垂直于场线）</span><br>
+      <span class="swatch" style="background:var(--probe)"></span><span id="lgProbe">紫圆：可拖动试探点（读出场强信息）</span>
+    </div>
+
+    <h2 id="h2Explain">概念说明</h2>
+    <p class="note" id="explainBox">
+      点电荷 <b><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>q</mi></math></b> 在距其 <b><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>r</mi></math></b> 处产生场强
+      <b><math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>E</mi><mo>=</mo><mfrac><mrow><mi>k</mi><mo>|</mo><mi>q</mi><mo>|</mo></mrow><msup><mi>r</mi><mn>2</mn></msup></mfrac></mrow></math></b>，
+      方向由正电荷指向外侧、由外侧指向负电荷。<br>
+      多个电荷的合场强等于各电荷产生的场强<b>矢量叠加</b>。<br>
+      <b>等势线</b>是电势相等的点的轨迹，始终与场线垂直，在两同号电荷中间会出现鞍形结构。
+    </p>
+
+    <div class="compliance" id="complianceBox">
+      合规声明：本 demo 仅使用<b>自绘抽象点电荷模型与可调参数</b>做概念可视化，
+      未复制任何高考原题文字、原卷图片或答案图，不是题目搬运。
+    </div>
+  </aside>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ========== i18n ==========
+  var I18N = {
+    zh: {
+      docTitle:   "电场可视化实验室 · 场线 / 等势线 / 叠加",
+      titleH1:    "电场可视化实验室 — 场线 · 等势线 · 叠加",
+      subtitle:   "拖动画布中的电荷改变位置；紫色试探点可拖动查看该点的合场强方向与大小。",
+      h2Formula:  "核心公式",
+      h2Charges:  "电荷参数",
+      h2Presets:  "预设场景",
+      h2Probe:    "试探点读数",
+      h2Legend:   "图例",
+      h2Explain:  "概念说明",
+      lbl1:       "电荷 1（拖动红圆改变位置）",
+      lbl2:       "电荷 2（拖动蓝圆改变位置）",
+      lblQ1:      "电荷量 q₁",
+      lblQ2:      "电荷量 q₂",
+      lblEquipot: "显示等势线（绿色轮廓线）",
+      lblArrows:  "显示电场矢量（网格箭头）",
+      pSP:        "单正电荷",
+      pSN:        "单负电荷",
+      pDipole:    "等量异号（偶极子）",
+      pSame:      "等量同号",
+      lblProbePos:   "坐标",
+      lblProbeE:     "|E| 相对大小",
+      lblProbeAngle: "场强方向（角度）",
+      lblProbeEx:    "Eₓ 分量",
+      lblProbeEy:    "Eᵧ 分量",
+      lgPos:    "红圆：正电荷（场线向外辐射）",
+      lgNeg:    "蓝圆：负电荷（场线向内汇聚）",
+      lgField:  "黄色箭头：各采样点的合电场方向",
+      lgEquipot:"绿色曲线：等势线（垂直于场线）",
+      lgProbe:  "紫圆：可拖动试探点（读出场强信息）",
+      explain:
+        '点电荷 <b><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>q</mi></math></b> 在距其 <b><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>r</mi></math></b> 处产生场强 '
+        + '<b><math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>E</mi><mo>=</mo><mfrac><mrow><mi>k</mi><mo>|</mo><mi>q</mi><mo>|</mo></mrow><msup><mi>r</mi><mn>2</mn></msup></mfrac></mrow></math></b>，'
+        + '方向由正电荷指向外侧、由外侧指向负电荷。<br>'
+        + '多个电荷的合场强等于各电荷产生的场强<b>矢量叠加</b>。<br>'
+        + '<b>等势线</b>是电势相等的点的轨迹，始终与场线垂直，在两同号电荷中间会出现鞍形结构。',
+      compliance:
+        '合规声明：本 demo 仅使用<b>自绘抽象点电荷模型与可调参数</b>做概念可视化，'
+        + '未复制任何高考原题文字、原卷图片或答案图，不是题目搬运。'
+    },
+    en: {
+      docTitle:   "Electric Field Visual Lab · Field Lines / Equipotentials / Superposition",
+      titleH1:    "Electric Field Visual Lab — Field Lines · Equipotentials · Superposition",
+      subtitle:   "Drag the charges to reposition them; drag the purple probe to read the net field at any point.",
+      h2Formula:  "Key Formulae",
+      h2Charges:  "Charge Parameters",
+      h2Presets:  "Presets",
+      h2Probe:    "Probe Readout",
+      h2Legend:   "Legend",
+      h2Explain:  "Concept Notes",
+      lbl1:       "Charge 1 (drag the red circle)",
+      lbl2:       "Charge 2 (drag the blue circle)",
+      lblQ1:      "Magnitude q₁",
+      lblQ2:      "Magnitude q₂",
+      lblEquipot: "Show equipotential lines (green)",
+      lblArrows:  "Show field vectors (grid arrows)",
+      pSP:        "Single positive",
+      pSN:        "Single negative",
+      pDipole:    "Dipole (equal & opposite)",
+      pSame:      "Equal like charges",
+      lblProbePos:   "Position",
+      lblProbeE:     "|E| relative magnitude",
+      lblProbeAngle: "Field direction (angle)",
+      lblProbeEx:    "Eₓ component",
+      lblProbeEy:    "Eᵧ component",
+      lgPos:    "Red circle: positive charge (field lines radiate outward)",
+      lgNeg:    "Blue circle: negative charge (field lines converge inward)",
+      lgField:  "Yellow arrows: net electric field direction at sample points",
+      lgEquipot:"Green curves: equipotential lines (perpendicular to field lines)",
+      lgProbe:  "Purple circle: draggable probe (reads field info at that point)",
+      explain:
+        'A point charge <b><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>q</mi></math></b> produces a field of magnitude '
+        + '<b><math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>E</mi><mo>=</mo><mfrac><mrow><mi>k</mi><mo>|</mo><mi>q</mi><mo>|</mo></mrow><msup><mi>r</mi><mn>2</mn></msup></mfrac></mrow></math></b> '
+        + 'at distance <b><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>r</mi></math></b>, directed away from a positive charge and toward a negative charge.<br>'
+        + 'The net field from multiple charges is the <b>vector sum</b> of the individual fields.<br>'
+        + '<b>Equipotential lines</b> connect points of equal electric potential; they are always perpendicular to field lines, and form a saddle structure between two like charges.',
+      compliance:
+        'Disclaimer: This demo uses only <b>abstract, self-drawn point-charge models with adjustable parameters</b> for conceptual visualization. '
+        + 'No original exam questions, scanned papers, or answer images have been reproduced.'
+    }
+  };
+
+  var currentLang = "zh";
+
+  window.setLang = function (lang) {
+    if (lang === currentLang) return;
+    currentLang = lang;
+    document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
+    document.getElementById("btnZh").classList.toggle("active", lang === "zh");
+    document.getElementById("btnEn").classList.toggle("active", lang === "en");
+    applyLang();
+    draw();
+  };
+
+  function t(key) { return I18N[currentLang][key]; }
+
+  function applyLang() {
+    var L = I18N[currentLang];
+    document.title = L.docTitle;
+    document.getElementById("titleH1").textContent = L.titleH1;
+    document.getElementById("subtitle").textContent = L.subtitle;
+    document.getElementById("h2Formula").textContent  = L.h2Formula;
+    document.getElementById("h2Charges").textContent  = L.h2Charges;
+    document.getElementById("h2Presets").textContent  = L.h2Presets;
+    document.getElementById("h2Probe").textContent    = L.h2Probe;
+    document.getElementById("h2Legend").textContent   = L.h2Legend;
+    document.getElementById("h2Explain").textContent  = L.h2Explain;
+    document.getElementById("lbl1").textContent = L.lbl1;
+    document.getElementById("lbl2").textContent = L.lbl2;
+    document.getElementById("lblQ1").textContent = L.lblQ1;
+    document.getElementById("lblQ2").textContent = L.lblQ2;
+    document.getElementById("lblEquipot").textContent = L.lblEquipot;
+    document.getElementById("lblArrows").textContent  = L.lblArrows;
+    document.getElementById("pSP").textContent     = L.pSP;
+    document.getElementById("pSN").textContent     = L.pSN;
+    document.getElementById("pDipole").textContent = L.pDipole;
+    document.getElementById("pSame").textContent   = L.pSame;
+    document.getElementById("lblProbePos").textContent   = L.lblProbePos;
+    document.getElementById("lblProbeE").textContent     = L.lblProbeE;
+    document.getElementById("lblProbeAngle").textContent = L.lblProbeAngle;
+    document.getElementById("lblProbeEx").textContent    = L.lblProbeEx;
+    document.getElementById("lblProbeEy").textContent    = L.lblProbeEy;
+    document.getElementById("lgPos").textContent     = L.lgPos;
+    document.getElementById("lgNeg").textContent     = L.lgNeg;
+    document.getElementById("lgField").textContent   = L.lgField;
+    document.getElementById("lgEquipot").textContent = L.lgEquipot;
+    document.getElementById("lgProbe").textContent   = L.lgProbe;
+    document.getElementById("explainBox").innerHTML    = L.explain;
+    document.getElementById("complianceBox").innerHTML = L.compliance;
+  }
+
+  // ========== 物理模型 ==========
+  // 使用无量纲单位: k=1, 电荷量用滑块值
+  // 世界坐标: [-5, 5] x [-5, 5]
+  var WORLD = 5; // 半边长
+
+  // 电荷状态 (世界坐标)
+  var charges = [
+    { x: -1.5, y: 0, q: 2.0 },
+    { x:  1.5, y: 0, q: -2.0 }
+  ];
+
+  // 试探点
+  var probe = { x: 0, y: 1.5 };
+
+  // 选项
+  var showEquipot = true;
+  var showArrows  = true;
+
+  // 计算某点 (px, py) 处的合电场矢量 (Ex, Ey)
+  // 用 k=1,距离缩放后的无量纲场强
+  var SOFT = 0.15; // softening 避免靠近电荷处奇异
+  function electricField(px, py) {
+    var Ex = 0, Ey = 0;
+    for (var i = 0; i < charges.length; i++) {
+      var c = charges[i];
+      var dx = px - c.x;
+      var dy = py - c.y;
+      var r2 = dx*dx + dy*dy + SOFT*SOFT;
+      var r  = Math.sqrt(r2);
+      var E  = c.q / r2;          // 正电荷向外, 负电荷向内 (q 带符号)
+      Ex += E * dx / r;
+      Ey += E * dy / r;
+    }
+    return { x: Ex, y: Ey };
+  }
+
+  // 计算某点电势 (k=1, V = sum q/r)
+  function electricPotential(px, py) {
+    var V = 0;
+    for (var i = 0; i < charges.length; i++) {
+      var c = charges[i];
+      var dx = px - c.x;
+      var dy = py - c.y;
+      var r = Math.sqrt(dx*dx + dy*dy + SOFT*SOFT);
+      V += c.q / r;
+    }
+    return V;
+  }
+
+  // ========== 画布与坐标变换 ==========
+  var canvas = document.getElementById("cv");
+  var ctx    = canvas.getContext("2d");
+  var DPR    = Math.max(1, window.devicePixelRatio || 1);
+  var W = 0, H = 0;
+
+  function sx(wx2) { return (wx2 + WORLD) / (2*WORLD) * W; }
+  function sy(wy)  { return (1 - (wy  + WORLD) / (2*WORLD)) * H; }
+  function wx(px)  { return px / W * 2*WORLD - WORLD; }
+  function wy(py)  { return (1 - py / H) * 2*WORLD - WORLD; }
+
+  function resize() {
+    var rect = canvas.parentElement.getBoundingClientRect();
+    W = rect.width; H = rect.height;
+    canvas.width  = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    draw();
+  }
+
+  // ========== 绘制 ==========
+  var cssCache = {};
+  function getCss(name) {
+    if (cssCache[name]) return cssCache[name];
+    var v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    cssCache[name] = v; return v;
+  }
+
+  // 画网格与轴
+  function drawGrid() {
+    ctx.strokeStyle = getCss("--grid");
+    ctx.lineWidth = 1;
+    for (var gx = -WORLD; gx <= WORLD; gx++) {
+      ctx.beginPath(); ctx.moveTo(sx(gx), 0); ctx.lineTo(sx(gx), H); ctx.stroke();
+    }
+    for (var gy = -WORLD; gy <= WORLD; gy++) {
+      ctx.beginPath(); ctx.moveTo(0, sy(gy)); ctx.lineTo(W, sy(gy)); ctx.stroke();
+    }
+    // 坐标轴
+    ctx.strokeStyle = getCss("--axis");
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(0, sy(0)); ctx.lineTo(W, sy(0)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(sx(0), 0); ctx.lineTo(sx(0), H); ctx.stroke();
+    // 轴标签
+    ctx.fillStyle = getCss("--muted");
+    ctx.font = "11px Consolas, monospace";
+    ctx.textBaseline = "top";
+    ctx.textAlign = "left";
+    for (var tx = -WORLD+1; tx < WORLD; tx++) {
+      if (tx === 0) continue;
+      ctx.fillText(tx, sx(tx)+2, sy(0)+3);
+    }
+    ctx.textBaseline = "middle";
+    for (var ty = -WORLD+1; ty < WORLD; ty++) {
+      if (ty === 0) continue;
+      ctx.fillText(ty, sx(0)+4, sy(ty));
+    }
+  }
+
+  // 画等势线 (marching squares 简化版:在均匀网格上用线段插值)
+  function drawEquipotentials() {
+    var NX = 120, NY = 120;
+    // 计算网格电势
+    var V = [];
+    for (var j = 0; j <= NY; j++) {
+      V[j] = [];
+      var yy = -WORLD + j / NY * 2*WORLD;
+      for (var i = 0; i <= NX; i++) {
+        var xx = -WORLD + i / NX * 2*WORLD;
+        V[j][i] = electricPotential(xx, yy);
+      }
+    }
+
+    // 等势线值:对数均匀分布以覆盖宽动态范围
+    var levels = [];
+    var signs = [1, -1];
+    var mags = [0.3, 0.6, 1.0, 1.5, 2.2, 3.2, 4.8, 7.0, 10];
+    for (var s = 0; s < signs.length; s++) {
+      for (var m = 0; m < mags.length; m++) {
+        levels.push(signs[s] * mags[m]);
+      }
+    }
+    levels.push(0);
+
+    ctx.strokeStyle = getCss("--equipot");
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([4, 4]);
+
+    for (var li = 0; li < levels.length; li++) {
+      var lv = levels[li];
+      // marching squares: 每个 2x2 格子内找过 lv 的边
+      for (var j2 = 0; j2 < NY; j2++) {
+        for (var i2 = 0; i2 < NX; i2++) {
+          var v00 = V[j2][i2], v10 = V[j2][i2+1];
+          var v01 = V[j2+1][i2], v11 = V[j2+1][i2+1];
+
+          // 格子角的屏幕坐标
+          var x0w = -WORLD + i2     / NX * 2*WORLD;
+          var x1w = -WORLD + (i2+1) / NX * 2*WORLD;
+          var y0w = -WORLD + j2     / NY * 2*WORLD;
+          var y1w = -WORLD + (j2+1) / NY * 2*WORLD;
+
+          // 插值找 lv 等值线在 4 条边上的交点
+          var pts = [];
+          function lerp1d(va, vb, xa, xb) {
+            if ((va - lv) * (vb - lv) < 0) {
+              var t = (lv - va) / (vb - va);
+              return xa + t*(xb-xa);
+            }
+            return null;
+          }
+          // 底边 j2 -> (i2→i2+1)
+          var ex = lerp1d(v00, v10, x0w, x1w);
+          if (ex !== null) pts.push({ x: sx(ex), y: sy(y0w) });
+          // 顶边 j2+1
+          ex = lerp1d(v01, v11, x0w, x1w);
+          if (ex !== null) pts.push({ x: sx(ex), y: sy(y1w) });
+          // 左边 i2 -> (j2→j2+1)
+          var ey = lerp1d(v00, v01, y0w, y1w);
+          if (ey !== null) pts.push({ x: sx(x0w), y: sy(ey) });
+          // 右边 i2+1
+          ey = lerp1d(v10, v11, y0w, y1w);
+          if (ey !== null) pts.push({ x: sx(x1w), y: sy(ey) });
+
+          if (pts.length === 2) {
+            ctx.beginPath();
+            ctx.moveTo(pts[0].x, pts[0].y);
+            ctx.lineTo(pts[1].x, pts[1].y);
+            ctx.stroke();
+          }
+        }
+      }
+    }
+    ctx.setLineDash([]);
+  }
+
+  // 画电场矢量箭头
+  var ARROW_STEP = 55; // 像素间距
+  function drawFieldArrows() {
+    var cols = Math.floor(W / ARROW_STEP);
+    var rows = Math.floor(H / ARROW_STEP);
+    var dx0  = (W - cols * ARROW_STEP) / 2;
+    var dy0  = (H - rows * ARROW_STEP) / 2;
+
+    for (var r = 0; r <= rows; r++) {
+      for (var c = 0; c <= cols; c++) {
+        var px2 = dx0 + c * ARROW_STEP;
+        var py2 = dy0 + r * ARROW_STEP;
+        var worldX = wx(px2);
+        var worldY = wy(py2);
+
+        // 跳过电荷附近
+        var tooClose = false;
+        for (var ci = 0; ci < charges.length; ci++) {
+          var ddx = worldX - charges[ci].x;
+          var ddy = worldY - charges[ci].y;
+          if (ddx*ddx + ddy*ddy < 0.3*0.3) { tooClose = true; break; }
+        }
+        if (tooClose) continue;
+
+        var E = electricField(worldX, worldY);
+        var mag = Math.sqrt(E.x*E.x + E.y*E.y);
+        if (mag < 1e-6) continue;
+
+        // 归一化,固定显示长度(对数映射让强弱有所体现)
+        var displayLen = 14 + 6 * Math.log(1 + mag);
+        displayLen = Math.min(displayLen, ARROW_STEP * 0.45);
+        var nx = E.x / mag;
+        var ny = -E.y / mag; // canvas y 轴反向
+
+        drawArrow(px2, py2, nx * displayLen, ny * displayLen);
+      }
+    }
+  }
+
+  function drawArrow(ox, oy, dvx, dvy) {
+    var ex = ox + dvx, ey = oy + dvy;
+    var len = Math.sqrt(dvx*dvx + dvy*dvy);
+    if (len < 1) return;
+    var ux = dvx/len, uy = dvy/len;
+    var headLen = Math.min(7, len * 0.45);
+    var hw = headLen * 0.45;
+
+    ctx.strokeStyle = getCss("--field");
+    ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    ctx.moveTo(ox, oy);
+    ctx.lineTo(ex, ey);
+    ctx.stroke();
+
+    // 箭头头部(实心三角)
+    ctx.fillStyle = getCss("--field");
+    ctx.beginPath();
+    ctx.moveTo(ex, ey);
+    ctx.lineTo(ex - ux*headLen - uy*hw, ey - uy*headLen + ux*hw);
+    ctx.lineTo(ex - ux*headLen + uy*hw, ey - uy*headLen - ux*hw);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // 画电荷
+  var CHARGE_R = 14; // 像素半径
+  function drawCharges() {
+    for (var i = 0; i < charges.length; i++) {
+      var c = charges[i];
+      var px3 = sx(c.x), py3 = sy(c.y);
+      var isPos = c.q >= 0;
+      var color = isPos ? getCss("--pos") : getCss("--neg");
+
+      // 光晕
+      var grd = ctx.createRadialGradient(px3, py3, 2, px3, py3, CHARGE_R + 10);
+      grd.addColorStop(0, color.replace("rgb", "rgba").replace(")", ",0.35)").replace("#", "rgba(") || color);
+      grd.addColorStop(1, "rgba(0,0,0,0)");
+      // 简单光晕: 用低透明度大圆
+      ctx.globalAlpha = 0.25;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(px3, py3, CHARGE_R + 10, 0, Math.PI*2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
+      // 实心圆
+      ctx.fillStyle = color;
+      ctx.strokeStyle = "#0b0f14";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(px3, py3, CHARGE_R, 0, Math.PI*2);
+      ctx.fill();
+      ctx.stroke();
+
+      // 符号(+/−)
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 16px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(isPos ? "+" : "−", px3, py3);
+
+      // 电荷量标注
+      ctx.fillStyle = color;
+      ctx.font = "italic 12px 'Cambria Math','Times New Roman',serif";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "bottom";
+      var qlabel = (isPos ? "q=" : "q=") + (isPos ? "+" : "−") + Math.abs(c.q).toFixed(1);
+      ctx.fillText(qlabel, px3 + CHARGE_R + 4, py3 - 2);
+    }
+    ctx.textAlign = "left";
+  }
+
+  // 画试探点
+  var PROBE_R = 10;
+  function drawProbe() {
+    var px4 = sx(probe.x), py4 = sy(probe.y);
+    var E = electricField(probe.x, probe.y);
+    var mag = Math.sqrt(E.x*E.x + E.y*E.y);
+
+    // 试探点圆
+    ctx.fillStyle = getCss("--probe");
+    ctx.strokeStyle = "#0b0f14";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(px4, py4, PROBE_R, 0, Math.PI*2);
+    ctx.fill(); ctx.stroke();
+
+    // 场强方向大箭头
+    if (mag > 1e-6) {
+      var nx2 = E.x/mag, ny2 = -E.y/mag;
+      var arrowLen = 35;
+      ctx.strokeStyle = getCss("--probe");
+      ctx.lineWidth = 2.5;
+      drawArrow(px4, py4, nx2*arrowLen, ny2*arrowLen);
+    }
+
+    // 标注
+    ctx.fillStyle = getCss("--probe");
+    ctx.font = "12px Consolas, monospace";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "bottom";
+    ctx.fillText("P(" + fmtCoord(probe.x) + ", " + fmtCoord(probe.y) + ")", px4 + PROBE_R + 4, py4 - 2);
+
+    // 更新侧栏
+    var angle = Math.atan2(-E.y, E.x) * 180 / Math.PI;
+    if (angle < 0) angle += 360;
+    document.getElementById("roProbePos").textContent   = "(" + fmtCoord(probe.x) + ", " + fmtCoord(probe.y) + ")";
+    document.getElementById("roProbeE").textContent     = mag > 1e-6 ? mag.toFixed(3) : "—";
+    document.getElementById("roProbeAngle").textContent = mag > 1e-6 ? angle.toFixed(1) + "°" : "—";
+    document.getElementById("roProbeEx").textContent    = mag > 1e-6 ? E.x.toFixed(3) : "—";
+    document.getElementById("roProbeEy").textContent    = mag > 1e-6 ? E.y.toFixed(3) : "—";
+  }
+
+  function fmtCoord(v) { return (Math.round(v*10)/10).toFixed(1); }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    drawGrid();
+    if (showEquipot) drawEquipotentials();
+    if (showArrows)  drawFieldArrows();
+    drawCharges();
+    drawProbe();
+  }
+
+  // ========== 拖动交互 ==========
+  var dragging = null; // null | "c0" | "c1" | "probe"
+  var dragOffset = { x: 0, y: 0 };
+
+  function pointerWorld(evt) {
+    var rect = canvas.getBoundingClientRect();
+    var clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+    var clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+    return { x: wx(clientX - rect.left), y: wy(clientY - rect.top) };
+  }
+
+  function hitCharge(pw, idx) {
+    var c = charges[idx];
+    var dx2 = pw.x - c.x, dy2 = pw.y - c.y;
+    // 判断范围:把像素半径换算到世界坐标
+    var threshW = CHARGE_R / (W / (2*WORLD));
+    return dx2*dx2 + dy2*dy2 < threshW*threshW * 2;
+  }
+  function hitProbe(pw) {
+    var dx3 = pw.x - probe.x, dy3 = pw.y - probe.y;
+    var threshW = PROBE_R / (W / (2*WORLD));
+    return dx3*dx3 + dy3*dy3 < threshW*threshW * 2;
+  }
+
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+  function onDown(evt) {
+    var pw = pointerWorld(evt);
+    // 优先判断电荷,再判断试探点
+    for (var i = charges.length - 1; i >= 0; i--) {
+      if (hitCharge(pw, i)) {
+        dragging = "c" + i;
+        dragOffset = { x: pw.x - charges[i].x, y: pw.y - charges[i].y };
+        canvas.classList.add("dragging");
+        evt.preventDefault(); return;
+      }
+    }
+    if (hitProbe(pw)) {
+      dragging = "probe";
+      dragOffset = { x: pw.x - probe.x, y: pw.y - probe.y };
+      canvas.classList.add("dragging");
+      evt.preventDefault(); return;
+    }
+  }
+
+  function onMove(evt) {
+    if (!dragging) return;
+    var pw = pointerWorld(evt);
+    var tx = clamp(pw.x - dragOffset.x, -WORLD, WORLD);
+    var ty = clamp(pw.y - dragOffset.y, -WORLD, WORLD);
+    if (dragging === "c0") { charges[0].x = tx; charges[0].y = ty; }
+    else if (dragging === "c1") { charges[1].x = tx; charges[1].y = ty; }
+    else if (dragging === "probe") { probe.x = tx; probe.y = ty; }
+    draw();
+    evt.preventDefault();
+  }
+
+  function onUp() {
+    dragging = null;
+    canvas.classList.remove("dragging");
+  }
+
+  canvas.addEventListener("mousedown",  onDown);
+  window.addEventListener("mousemove",  onMove);
+  window.addEventListener("mouseup",    onUp);
+  canvas.addEventListener("touchstart", onDown, { passive: false });
+  canvas.addEventListener("touchmove",  onMove, { passive: false });
+  window.addEventListener("touchend",   onUp);
+
+  // ========== 侧栏控件 ==========
+  // 电荷量滑块
+  function syncSlider(idx) {
+    var sId = "sQ" + (idx+1);
+    var nId = "numQ" + (idx+1);
+    var el  = document.getElementById(sId);
+    var q   = charges[idx].q;
+    el.value = q;
+    document.getElementById(nId).textContent = (q >= 0 ? "+" : "") + q.toFixed(1);
+    // 更新点颜色指示
+    document.getElementById("dot" + (idx+1)).style.background =
+      q >= 0 ? "var(--pos)" : "var(--neg)";
+  }
+
+  document.getElementById("sQ1").addEventListener("input", function () {
+    charges[0].q = parseFloat(this.value);
+    syncSlider(0); draw();
+  });
+  document.getElementById("sQ2").addEventListener("input", function () {
+    charges[1].q = parseFloat(this.value);
+    syncSlider(1); draw();
+  });
+
+  window.setSign = function (chargeIdx, sign) {
+    var idx = chargeIdx - 1;
+    charges[idx].q = Math.abs(charges[idx].q || 1) * sign;
+    if (Math.abs(charges[idx].q) < 0.1) charges[idx].q = sign * 1.0;
+    document.getElementById("sQ" + chargeIdx).value = charges[idx].q;
+    syncSlider(idx);
+    draw();
+  };
+
+  // 等势线 / 箭头开关
+  document.getElementById("chkEquipot").addEventListener("change", function () {
+    showEquipot = this.checked; draw();
+  });
+  document.getElementById("chkArrows").addEventListener("change", function () {
+    showArrows = this.checked; draw();
+  });
+
+  // ========== 预设 ==========
+  var PRESET_IDS = ["presetSP", "presetSN", "presetDipole", "presetSame"];
+  function clearPreset() {
+    PRESET_IDS.forEach(function (id) { document.getElementById(id).classList.remove("active"); });
+  }
+
+  window.applyPreset = function (name) {
+    clearPreset();
+    switch (name) {
+      case "single_pos":
+        charges = [{ x: 0, y: 0, q: 3 }];
+        probe = { x: 1.8, y: 1.8 };
+        document.getElementById("presetSP").classList.add("active");
+        break;
+      case "single_neg":
+        charges = [{ x: 0, y: 0, q: -3 }];
+        probe = { x: 1.8, y: 1.8 };
+        document.getElementById("presetSN").classList.add("active");
+        break;
+      case "dipole":
+        charges = [{ x: -1.5, y: 0, q: 2 }, { x: 1.5, y: 0, q: -2 }];
+        probe = { x: 0, y: 1.8 };
+        document.getElementById("presetDipole").classList.add("active");
+        break;
+      case "same_sign":
+        charges = [{ x: -1.5, y: 0, q: 2 }, { x: 1.5, y: 0, q: 2 }];
+        probe = { x: 0, y: 0 };
+        document.getElementById("presetSame").classList.add("active");
+        break;
+    }
+    // 同步侧栏滑块(最多 2 个电荷)
+    if (charges.length >= 1) syncSlider(0);
+    if (charges.length >= 2) syncSlider(1);
+    // 单电荷预设时隐藏 ctrl2,多电荷时显示
+    document.getElementById("ctrl2").style.display =
+      charges.length >= 2 ? "" : "none";
+    draw();
+  };
+
+  // ========== 启动 ==========
+  applyLang();
+  // 初始化滑块显示
+  syncSlider(0);
+  syncSlider(1);
+  window.addEventListener("resize", resize);
+  resize();
+})();
+</script>
+</body>
+</html>

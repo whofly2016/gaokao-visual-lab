@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>三角函数与波 · 周期 / 振幅 / 相位 / 叠加</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --panel: #1a212b;
+    --panel2: #232c38;
+    --ink: #e6edf3;
+    --muted: #93a1b1;
+    --accent: #4fc3f7;
+    --inc: #58d68d;
+    --dec: #ef7a85;
+    --tangent: #ffd166;
+    --maxpt: #ff6b6b;
+    --minpt: #5dade2;
+    --grid: #2a3441;
+    --axis: #5b6b7b;
+    --wave1: #4fc3f7;
+    --wave2: #ffd166;
+    --wavesum: #58d68d;
+    --circle: #ef7a85;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    height: 100%;
+  }
+  .app {
+    display: flex;
+    flex-direction: row;
+    min-height: 100vh;
+  }
+  .stage {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    min-width: 0;
+  }
+  .stage-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+  .stage h1 {
+    font-size: 18px;
+    margin: 0;
+    font-weight: 600;
+  }
+  .stage .sub {
+    color: var(--muted);
+    font-size: 13px;
+    margin: 0 0 10px 0;
+  }
+  .canvas-area {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    min-height: 340px;
+  }
+  .circle-wrap {
+    flex: 0 0 220px;
+    background: #0b0f14;
+    border: 1px solid var(--grid);
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+  }
+  .wave-wrap {
+    flex: 1 1 auto;
+    background: #0b0f14;
+    border: 1px solid var(--grid);
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+  }
+  canvas { display: block; width: 100%; height: 100%; }
+
+  /* 语言切换按钮 */
+  .lang-switch {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .lang-switch button {
+    background: none;
+    border: none;
+    padding: 2px 6px;
+    font-size: 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--muted);
+    transition: color .15s, background .15s;
+  }
+  .lang-switch button:hover { color: var(--ink); background: var(--panel2); }
+  .lang-switch button.active { color: var(--accent); font-weight: 700; background: none; }
+  .lang-switch .sep { color: var(--grid); }
+
+  .panel {
+    flex: 0 0 340px;
+    background: var(--panel);
+    border-left: 1px solid var(--grid);
+    padding: 18px;
+    overflow-y: auto;
+    max-height: 100vh;
+  }
+  .panel h2 {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    margin: 18px 0 8px;
+    border-bottom: 1px solid var(--grid);
+    padding-bottom: 6px;
+  }
+  .panel h2:first-child { margin-top: 0; }
+
+  .expr {
+    background: var(--panel2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: "Cambria Math", "Times New Roman", serif;
+    font-size: 16px;
+    margin: 6px 0;
+    line-height: 1.6;
+    word-break: break-word;
+  }
+
+  math { font-size: 1.08em; vertical-align: -0.15em; }
+  .expr math { font-size: 1.1em; }
+  var { font-family: "Cambria Math", "Times New Roman", serif; font-style: italic; }
+
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 8px 0;
+    font-size: 14px;
+  }
+  .row label { color: var(--muted); }
+  .row .val {
+    font-variant-numeric: tabular-nums;
+    font-family: "Consolas", monospace;
+    font-size: 14px;
+  }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .slider-row { margin: 10px 0; }
+  .slider-row .head {
+    display: flex; justify-content: space-between;
+    font-size: 13px; margin-bottom: 3px;
+  }
+  .slider-row .head .name { color: var(--ink); font-weight: 600; }
+  .slider-row .head .num {
+    font-family: "Consolas", monospace; color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .readout {
+    background: var(--panel2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: "Consolas", monospace;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  .readout .k { color: var(--muted); }
+  .readout .v { float: right; font-variant-numeric: tabular-nums; }
+  .swatch { display:inline-block; width:11px; height:11px; border-radius:3px; vertical-align:middle; margin-right:5px; }
+
+  .note {
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--muted);
+  }
+  .note b { color: var(--ink); }
+  .legend { font-size: 12.5px; line-height: 1.95; color: var(--muted); }
+
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  button {
+    background: var(--panel2);
+    color: var(--ink);
+    border: 1px solid var(--grid);
+    border-radius: 7px;
+    padding: 7px 11px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  button:hover { background: #2c3848; border-color: var(--accent); }
+  button.active { border-color: var(--accent); color: var(--accent); }
+  #btnPlay { min-width: 72px; }
+
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 8px 0 4px;
+    font-size: 13px;
+  }
+  .toggle-row label { color: var(--muted); cursor: pointer; }
+  input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
+
+  .wave2-block {
+    opacity: 0.4;
+    transition: opacity .2s;
+    pointer-events: none;
+  }
+  .wave2-block.enabled {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .compliance {
+    margin-top: 16px; font-size: 11.5px; color: #6b7886;
+    line-height: 1.6; border-top: 1px dashed var(--grid); padding-top: 10px;
+  }
+
+  @media (max-width: 900px) {
+    .app { flex-direction: column; }
+    .panel { flex-basis: auto; border-left: none; border-top: 1px solid var(--grid); max-height: none; }
+    .canvas-area { flex-direction: column; min-height: auto; }
+    .circle-wrap { flex: 0 0 200px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="stage">
+    <div class="stage-header">
+      <h1 id="titleH1">三角函数与波 — 周期 · 振幅 · 相位 · 叠加</h1>
+      <div class="lang-switch">
+        <button id="btnZh" class="active" onclick="setLang('zh')">中文</button>
+        <span class="sep">|</span>
+        <button id="btnEn" onclick="setLang('en')">EN</button>
+      </div>
+    </div>
+    <p class="sub" id="subtitle">左侧单位圆上旋转点与右侧正弦波同步联动；调整振幅 A、角频率 ω、相位 φ，观察波形如何变化。</p>
+    <div class="canvas-area">
+      <div class="circle-wrap">
+        <canvas id="cvCircle"></canvas>
+      </div>
+      <div class="wave-wrap">
+        <canvas id="cvWave"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <aside class="panel">
+    <!-- 公式展示 -->
+    <h2 id="h2Formula">波形公式</h2>
+    <div class="expr" id="exprY1"></div>
+    <div class="expr" id="exprPeriod"></div>
+
+    <!-- 当前参数读数 -->
+    <h2 id="h2Params1">波 1 参数</h2>
+    <div class="readout">
+      <div><span class="k" id="lblAKey">振幅 A</span><span class="v" id="roA">1.00</span></div>
+      <div><span class="k" id="lblOmegaKey">角频率 ω</span><span class="v" id="roOmega">1.00</span></div>
+      <div><span class="k" id="lblPhiKey">初相 φ</span><span class="v" id="roPhi">0.00 rad</span></div>
+      <div><span class="k" id="lblPeriodKey">周期 T</span><span class="v" id="roPeriod">6.28</span></div>
+    </div>
+
+    <!-- 波 1 滑块 -->
+    <div class="slider-row">
+      <div class="head"><span class="name" id="lblA">振幅 A</span><span class="num" id="numA">1.00</span></div>
+      <input type="range" id="sA" min="0.2" max="3" step="0.05" value="1">
+    </div>
+    <div class="slider-row">
+      <div class="head"><span class="name" id="lblOmega">角频率 ω</span><span class="num" id="numOmega">1.00</span></div>
+      <input type="range" id="sOmega" min="0.25" max="4" step="0.05" value="1">
+    </div>
+    <div class="slider-row">
+      <div class="head"><span class="name" id="lblPhi">初相 φ (rad)</span><span class="num" id="numPhi">0.00</span></div>
+      <input type="range" id="sPhi" min="-3.14" max="3.14" step="0.05" value="0">
+    </div>
+
+    <!-- 第二条波开关 -->
+    <h2 id="h2Wave2">第二条波（干涉）</h2>
+    <div class="toggle-row">
+      <input type="checkbox" id="chkWave2">
+      <label for="chkWave2" id="lblShowWave2">显示波 2 与叠加</label>
+    </div>
+    <div class="wave2-block" id="wave2Block">
+      <div class="slider-row">
+        <div class="head"><span class="name" id="lblA2">振幅 A₂</span><span class="num" id="numA2">1.00</span></div>
+        <input type="range" id="sA2" min="0.2" max="3" step="0.05" value="1">
+      </div>
+      <div class="slider-row">
+        <div class="head"><span class="name" id="lblOmega2">角频率 ω₂</span><span class="num" id="numOmega2">1.00</span></div>
+        <input type="range" id="sOmega2" min="0.25" max="4" step="0.05" value="1">
+      </div>
+      <div class="slider-row">
+        <div class="head"><span class="name" id="lblPhi2">初相 φ₂ (rad)</span><span class="num" id="numPhi2">3.14</span></div>
+        <input type="range" id="sPhi2" min="-3.14" max="3.14" step="0.05" value="3.14">
+      </div>
+      <div class="expr" id="exprY2" style="font-size:14px;"></div>
+    </div>
+
+    <!-- 预设 -->
+    <h2 id="h2Presets">预设场景</h2>
+    <div class="btn-row">
+      <button id="presetBasic" class="active" onclick="applyPreset('basic')"></button>
+      <button id="presetPhase" onclick="applyPreset('phase')"></button>
+      <button id="presetFreq" onclick="applyPreset('freq')"></button>
+      <button id="presetSuper" onclick="applyPreset('super')"></button>
+    </div>
+
+    <!-- 播放控制 -->
+    <h2 id="h2Anim">动画控制</h2>
+    <div class="btn-row">
+      <button id="btnPlay" onclick="togglePlay()"></button>
+    </div>
+
+    <!-- 图例 -->
+    <h2 id="h2Legend">图例</h2>
+    <div class="legend" id="legendBox"></div>
+
+    <!-- 概念说明 -->
+    <h2 id="h2Explain">概念说明</h2>
+    <p class="note" id="explainBox"></p>
+
+    <div class="compliance" id="complianceBox"></div>
+  </aside>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ===== i18n =====
+  var I18N = {
+    zh: {
+      docTitle:  "三角函数与波 · 周期 / 振幅 / 相位 / 叠加",
+      titleH1:   "三角函数与波 — 周期 · 振幅 · 相位 · 叠加",
+      subtitle:  "左侧单位圆上旋转点与右侧正弦波同步联动；调整振幅 A、角频率 ω、初相 φ，观察波形如何变化。",
+      h2Formula: "波形公式",
+      h2Params1: "波 1 参数",
+      h2Wave2:   "第二条波（干涉）",
+      h2Presets: "预设场景",
+      h2Anim:    "动画控制",
+      h2Legend:  "图例",
+      h2Explain: "概念说明",
+      lblAKey:       "振幅 A",
+      lblOmegaKey:   "角频率 ω",
+      lblPhiKey:     "初相 φ",
+      lblPeriodKey:  "周期 T",
+      lblA:      "振幅 A",
+      lblOmega:  "角频率 ω",
+      lblPhi:    "初相 φ (rad)",
+      lblA2:     "振幅 A₂",
+      lblOmega2: "角频率 ω₂",
+      lblPhi2:   "初相 φ₂ (rad)",
+      lblShowWave2: "显示波 2 与叠加",
+      presetBasic: "基本正弦",
+      presetPhase: "改相位",
+      presetFreq:  "改频率",
+      presetSuper: "两波叠加",
+      btnPlay:  "播放",
+      btnPause: "暂停",
+      legend: '<span class="swatch" style="background:var(--wave1)"></span>波 1：<math><mrow><msub><mi>y</mi><mn>1</mn></msub><mo>=</mo><mi>A</mi><mo>·</mo><mi>sin</mi><mo>(</mo><mi>ω</mi><mi>x</mi><mo>+</mo><mi>φ</mi><mo>)</mo></mrow></math><br>'
+            + '<span class="swatch" style="background:var(--wave2)"></span>波 2：<math><mrow><msub><mi>y</mi><mn>2</mn></msub><mo>=</mo><msub><mi>A</mi><mn>2</mn></msub><mo>·</mo><mi>sin</mi><mo>(</mo><msub><mi>ω</mi><mn>2</mn></msub><mi>x</mi><mo>+</mo><msub><mi>φ</mi><mn>2</mn></msub><mo>)</mo></mrow></math><br>'
+            + '<span class="swatch" style="background:var(--wavesum)"></span>叠加 <math><mrow><msub><mi>y</mi><mn>1</mn></msub><mo>+</mo><msub><mi>y</mi><mn>2</mn></msub></mrow></math><br>'
+            + '<span class="swatch" style="background:var(--circle)"></span>单位圆旋转点（角度 = ωt + φ）<br>'
+            + '<span class="swatch" style="background:var(--accent)"></span>竖线：单位圆角度在波形上的对应时刻',
+      explain: '正弦波 <math><mrow><mi>y</mi><mo>=</mo><mi>A</mi><mo>·</mo><mi>sin</mi><mo>(</mo><mi>ω</mi><mi>x</mi><mo>+</mo><mi>φ</mi><mo>)</mo></mrow></math> 由三个量决定：<br>'
+             + '· <b>振幅 A</b>：波的最大偏移量，决定波峰高度。<br>'
+             + '· <b>角频率 ω</b>：单位长度内经历的弧度数，<math><mrow><mi>T</mi><mo>=</mo><mfrac><mrow><mn>2</mn><mi>π</mi></mrow><mi>ω</mi></mfrac></mrow></math> 为周期。<br>'
+             + '· <b>初相 φ</b>：波形在水平方向的起始偏移，同相时波峰对齐，反相时叠加抵消。<br>'
+             + '左侧单位圆上旋转点的纵坐标，正是当前角度下的正弦值，与右侧波形实时同步。',
+      compliance: '合规声明：本 demo 仅使用<b>自绘抽象正弦模型与可调参数</b>做三角函数概念可视化，未复制任何高考原题文字、原卷图片或答案图，不是题目搬运。'
+    },
+    en: {
+      docTitle:  "Trigonometric Functions & Waves · Period / Amplitude / Phase / Superposition",
+      titleH1:   "Trigonometric Functions & Waves — Period · Amplitude · Phase · Superposition",
+      subtitle:  "The rotating point on the unit circle (left) is synchronized with the sine wave (right). Adjust amplitude A, angular frequency ω, and phase φ to explore the waveform.",
+      h2Formula: "Wave Formula",
+      h2Params1: "Wave 1 Parameters",
+      h2Wave2:   "Second Wave (Interference)",
+      h2Presets: "Presets",
+      h2Anim:    "Animation",
+      h2Legend:  "Legend",
+      h2Explain: "Concepts",
+      lblAKey:       "Amplitude A",
+      lblOmegaKey:   "Angular frequency ω",
+      lblPhiKey:     "Initial phase φ",
+      lblPeriodKey:  "Period T",
+      lblA:      "Amplitude A",
+      lblOmega:  "Angular frequency ω",
+      lblPhi:    "Initial phase φ (rad)",
+      lblA2:     "Amplitude A₂",
+      lblOmega2: "Angular frequency ω₂",
+      lblPhi2:   "Initial phase φ₂ (rad)",
+      lblShowWave2: "Show wave 2 & superposition",
+      presetBasic: "Basic sine",
+      presetPhase: "Phase shift",
+      presetFreq:  "Frequency change",
+      presetSuper: "Wave superposition",
+      btnPlay:  "Play",
+      btnPause: "Pause",
+      legend: '<span class="swatch" style="background:var(--wave1)"></span>Wave 1: <math><mrow><msub><mi>y</mi><mn>1</mn></msub><mo>=</mo><mi>A</mi><mo>·</mo><mi>sin</mi><mo>(</mo><mi>ω</mi><mi>x</mi><mo>+</mo><mi>φ</mi><mo>)</mo></mrow></math><br>'
+            + '<span class="swatch" style="background:var(--wave2)"></span>Wave 2: <math><mrow><msub><mi>y</mi><mn>2</mn></msub><mo>=</mo><msub><mi>A</mi><mn>2</mn></msub><mo>·</mo><mi>sin</mi><mo>(</mo><msub><mi>ω</mi><mn>2</mn></msub><mi>x</mi><mo>+</mo><msub><mi>φ</mi><mn>2</mn></msub><mo>)</mo></mrow></math><br>'
+            + '<span class="swatch" style="background:var(--wavesum)"></span>Superposition <math><mrow><msub><mi>y</mi><mn>1</mn></msub><mo>+</mo><msub><mi>y</mi><mn>2</mn></msub></mrow></math><br>'
+            + '<span class="swatch" style="background:var(--circle)"></span>Unit circle rotating point (angle = ωt + φ)<br>'
+            + '<span class="swatch" style="background:var(--accent)"></span>Vertical marker: current angle mapped onto wave',
+      explain: 'A sine wave <math><mrow><mi>y</mi><mo>=</mo><mi>A</mi><mo>·</mo><mi>sin</mi><mo>(</mo><mi>ω</mi><mi>x</mi><mo>+</mo><mi>φ</mi><mo>)</mo></mrow></math> is determined by three quantities:<br>'
+             + '· <b>Amplitude A</b>: maximum displacement from equilibrium (peak height).<br>'
+             + '· <b>Angular frequency ω</b>: radians traversed per unit length; period <math><mrow><mi>T</mi><mo>=</mo><mfrac><mrow><mn>2</mn><mi>π</mi></mrow><mi>ω</mi></mfrac></mrow></math>.<br>'
+             + '· <b>Initial phase φ</b>: horizontal shift of the waveform. In-phase waves reinforce; anti-phase waves cancel.<br>'
+             + 'The y-coordinate of the rotating point on the unit circle equals the sine of its current angle — exactly what the right-hand wave plots.',
+      compliance: 'Disclaimer: This demo uses only <b>abstract, self-drawn sine models with adjustable parameters</b> for trigonometric concept visualization. No original exam questions, scanned papers, or answer images have been reproduced.'
+    }
+  };
+
+  var lang = "zh";
+
+  window.setLang = function (l) {
+    if (l === lang) return;
+    lang = l;
+    document.documentElement.lang = l === "zh" ? "zh-CN" : "en";
+    document.getElementById("btnZh").classList.toggle("active", l === "zh");
+    document.getElementById("btnEn").classList.toggle("active", l === "en");
+    applyLang();
+    redrawAll();
+  };
+
+  function t(k) { return I18N[lang][k]; }
+
+  function applyLang() {
+    var L = I18N[lang];
+    document.title             = L.docTitle;
+    document.getElementById("titleH1").textContent     = L.titleH1;
+    document.getElementById("subtitle").textContent    = L.subtitle;
+    document.getElementById("h2Formula").textContent   = L.h2Formula;
+    document.getElementById("h2Params1").textContent   = L.h2Params1;
+    document.getElementById("h2Wave2").textContent     = L.h2Wave2;
+    document.getElementById("h2Presets").textContent   = L.h2Presets;
+    document.getElementById("h2Anim").textContent      = L.h2Anim;
+    document.getElementById("h2Legend").textContent    = L.h2Legend;
+    document.getElementById("h2Explain").textContent   = L.h2Explain;
+    document.getElementById("lblAKey").textContent     = L.lblAKey;
+    document.getElementById("lblOmegaKey").textContent = L.lblOmegaKey;
+    document.getElementById("lblPhiKey").textContent   = L.lblPhiKey;
+    document.getElementById("lblPeriodKey").textContent= L.lblPeriodKey;
+    document.getElementById("lblA").textContent        = L.lblA;
+    document.getElementById("lblOmega").textContent    = L.lblOmega;
+    document.getElementById("lblPhi").textContent      = L.lblPhi;
+    document.getElementById("lblA2").textContent       = L.lblA2;
+    document.getElementById("lblOmega2").textContent   = L.lblOmega2;
+    document.getElementById("lblPhi2").textContent     = L.lblPhi2;
+    document.getElementById("lblShowWave2").textContent= L.lblShowWave2;
+    document.getElementById("presetBasic").textContent = L.presetBasic;
+    document.getElementById("presetPhase").textContent = L.presetPhase;
+    document.getElementById("presetFreq").textContent  = L.presetFreq;
+    document.getElementById("presetSuper").textContent = L.presetSuper;
+    document.getElementById("btnPlay").textContent     = playing ? L.btnPause : L.btnPlay;
+    document.getElementById("legendBox").innerHTML     = L.legend;
+    document.getElementById("explainBox").innerHTML    = L.explain;
+    document.getElementById("complianceBox").innerHTML = L.compliance;
+    updateFormulas();
+  }
+
+  // ===== 状态 =====
+  var A  = 1,  omega  = 1,  phi  = 0;
+  var A2 = 1,  omega2 = 1,  phi2 = Math.PI;
+  var showWave2 = false;
+  var animT = 0;       // 动画时间(以角度 rad 计,每帧增加 dt)
+  var playing = false;
+  var rafId = null;
+  var lastTS = null;
+  var SPEED = 1.0;     // rad/s
+
+  // ===== Canvas =====
+  var cvC = document.getElementById("cvCircle");
+  var ctxC = cvC.getContext("2d");
+  var cvW = document.getElementById("cvWave");
+  var ctxW = cvW.getContext("2d");
+  var DPR = Math.max(1, window.devicePixelRatio || 1);
+  var WC = 0, HC = 0;   // circle canvas CSS px
+  var WW = 0, HW = 0;   // wave canvas CSS px
+
+  // ===== CSS 变量缓存 =====
+  var cssCache = {};
+  function getCss(name) {
+    if (cssCache[name]) return cssCache[name];
+    cssCache[name] = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return cssCache[name];
+  }
+
+  // ===== 数值格式化 =====
+  function fmt(v, dec) {
+    if (!isFinite(v)) return "—";
+    dec = (dec === undefined) ? 2 : dec;
+    return (Math.round(v * Math.pow(10, dec)) / Math.pow(10, dec)).toFixed(dec).replace(/-/, "−");
+  }
+
+  // ===== 公式 MathML =====
+  function updateFormulas() {
+    // y1 = A·sin(ωx + φ)
+    var phiSign = phi >= 0 ? "<mo>+</mo>" : "<mo>−</mo>";
+    var phiVal  = "<mn>" + fmt(Math.abs(phi)) + "</mn>";
+    var omStr   = "<mn>" + fmt(omega) + "</mn>";
+    var aStr    = "<mn>" + fmt(A) + "</mn>";
+    var body1 = "<mi>y</mi><mo>=</mo>" + aStr + "<mo>·</mo><mi>sin</mi><mo>(</mo>"
+              + omStr + "<mi>x</mi>" + phiSign + phiVal + "<mo>)</mo>";
+    document.getElementById("exprY1").innerHTML =
+      "<math xmlns='http://www.w3.org/1998/Math/MathML'><mrow>" + body1 + "</mrow></math>";
+
+    // T = 2π/ω
+    var period = 2 * Math.PI / omega;
+    var bodyT = "<mi>T</mi><mo>=</mo><mfrac><mrow><mn>2</mn><mi>π</mi></mrow><mi>ω</mi></mfrac>"
+              + "<mo>=</mo><mn>" + fmt(period) + "</mn>";
+    document.getElementById("exprPeriod").innerHTML =
+      "<math xmlns='http://www.w3.org/1998/Math/MathML'><mrow>" + bodyT + "</mrow></math>";
+
+    // y2 = A2·sin(ω2 x + φ2)
+    if (showWave2) {
+      var ph2Sign = phi2 >= 0 ? "<mo>+</mo>" : "<mo>−</mo>";
+      var ph2Val  = "<mn>" + fmt(Math.abs(phi2)) + "</mn>";
+      var body2 = "<msub><mi>y</mi><mn>2</mn></msub><mo>=</mo><mn>" + fmt(A2) + "</mn>"
+                + "<mo>·</mo><mi>sin</mi><mo>(</mo><mn>" + fmt(omega2) + "</mn><mi>x</mi>"
+                + ph2Sign + ph2Val + "<mo>)</mo>";
+      document.getElementById("exprY2").innerHTML =
+        "<math xmlns='http://www.w3.org/1998/Math/MathML'><mrow>" + body2 + "</mrow></math>";
+    }
+
+    // 侧栏读数
+    document.getElementById("roA").textContent     = fmt(A);
+    document.getElementById("roOmega").textContent = fmt(omega);
+    document.getElementById("roPhi").textContent   = fmt(phi) + " rad";
+    document.getElementById("roPeriod").textContent = fmt(period);
+  }
+
+  // ===== 绘制单位圆 =====
+  function drawCircle() {
+    ctxC.clearRect(0, 0, WC, HC);
+    var cx = WC / 2, cy = HC / 2;
+    var R = Math.min(WC, HC) * 0.38;   // 圆半径(CSS px)
+
+    // 网格线 / 轴
+    ctxC.strokeStyle = getCss("--grid");
+    ctxC.lineWidth = 1;
+    ctxC.beginPath(); ctxC.moveTo(0, cy); ctxC.lineTo(WC, cy); ctxC.stroke();
+    ctxC.beginPath(); ctxC.moveTo(cx, 0); ctxC.lineTo(cx, HC); ctxC.stroke();
+
+    // 单位圆
+    ctxC.strokeStyle = getCss("--axis");
+    ctxC.lineWidth = 1.5;
+    ctxC.beginPath(); ctxC.arc(cx, cy, R, 0, Math.PI * 2); ctxC.stroke();
+
+    // 当前角度 θ = ω·animT + φ
+    var theta = omega * animT + phi;
+    var px = cx + R * Math.cos(theta);
+    var py = cy - R * Math.sin(theta);
+
+    // 半径线(从圆心到旋转点)
+    ctxC.strokeStyle = getCss("--circle");
+    ctxC.lineWidth = 2;
+    ctxC.beginPath(); ctxC.moveTo(cx, cy); ctxC.lineTo(px, py); ctxC.stroke();
+
+    // 正弦值投影:纵向虚线(旋转点 -> 横轴)
+    ctxC.strokeStyle = getCss("--wave1");
+    ctxC.lineWidth = 1.2;
+    ctxC.setLineDash([4, 4]);
+    ctxC.beginPath(); ctxC.moveTo(px, py); ctxC.lineTo(px, cy); ctxC.stroke();
+    ctxC.setLineDash([]);
+
+    // 纵向投影线(旋转点 -> 纵轴):余弦投影
+    ctxC.strokeStyle = getCss("--muted");
+    ctxC.lineWidth = 1;
+    ctxC.setLineDash([3, 5]);
+    ctxC.beginPath(); ctxC.moveTo(px, py); ctxC.lineTo(cx, py); ctxC.stroke();
+    ctxC.setLineDash([]);
+
+    // 旋转点(实心圆)
+    ctxC.fillStyle = getCss("--circle");
+    ctxC.strokeStyle = getCss("--bg");
+    ctxC.lineWidth = 2;
+    ctxC.beginPath(); ctxC.arc(px, py, 6, 0, Math.PI * 2);
+    ctxC.fill(); ctxC.stroke();
+
+    // 标注:sinθ 值(纵坐标 = 正弦值)
+    var sinV = Math.sin(theta);
+    ctxC.fillStyle = getCss("--ink");
+    ctxC.font = "12px Consolas, monospace";
+    ctxC.textBaseline = "middle";
+    ctxC.textAlign = "right";
+    ctxC.fillText("y=" + fmt(sinV), cx - 6, py);
+
+    // 角度弧示意(从正 x 轴到半径,限制在 0~π 范围内,避免遮挡)
+    var arcR = R * 0.28;
+    var thetaMod = ((theta % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+    ctxC.strokeStyle = getCss("--tangent");
+    ctxC.lineWidth = 1.5;
+    ctxC.beginPath(); ctxC.arc(cx, cy, arcR, 0, -theta, theta < 0); ctxC.stroke();
+
+    // 标题标注 θ
+    ctxC.fillStyle = getCss("--tangent");
+    ctxC.font = "italic 13px 'Cambria Math', 'Times New Roman', serif";
+    ctxC.textAlign = "left";
+    ctxC.textBaseline = "middle";
+    var midAngle = theta / 2;
+    var lx = cx + (arcR + 12) * Math.cos(midAngle);
+    var ly = cy - (arcR + 12) * Math.sin(midAngle);
+    ctxC.fillText("θ", lx, ly);
+
+    // 左下角标签
+    ctxC.fillStyle = getCss("--muted");
+    ctxC.font = "11px 'Microsoft YaHei', sans-serif";
+    ctxC.textAlign = "left";
+    ctxC.textBaseline = "bottom";
+    ctxC.fillText(lang === "zh" ? "单位圆" : "Unit circle", 8, HC - 6);
+  }
+
+  // ===== 绘制波形 =====
+  function drawWave() {
+    ctxW.clearRect(0, 0, WW, HW);
+
+    // 坐标系：滚动窗口 [animT, animT+4π]，使 xMark=animT 恒在左端
+    // 保证单位圆点角度 ω·animT+φ 与波形标记点 y=A·sin(ω·animT+φ) 恒等
+    var maxA = showWave2 ? (A + A2 + 0.5) : (A + 0.5);
+    maxA = Math.max(maxA, 1.5);
+    var xMin = animT, xMax = animT + 4 * Math.PI;
+    var yMin = -maxA, yMax = maxA;
+
+    function sx(x) { return (x - xMin) / (xMax - xMin) * WW; }
+    function sy(y) { return HW / 2 - y / maxA * (HW / 2 - 20); }
+
+    // 网格
+    ctxW.strokeStyle = getCss("--grid");
+    ctxW.lineWidth = 1;
+    // 水平网格(每 0.5 倍振幅)
+    var gridY = Math.ceil(maxA / 0.5) * 0.5;
+    for (var gy = -gridY; gy <= gridY; gy += 0.5) {
+      ctxW.beginPath(); ctxW.moveTo(0, sy(gy)); ctxW.lineTo(WW, sy(gy)); ctxW.stroke();
+    }
+    // 垂直网格(每 π,相对于滚动窗口左端)
+    var gxStart = Math.ceil(xMin / Math.PI) * Math.PI;
+    for (var gx = gxStart; gx <= xMax + 1e-9; gx += Math.PI) {
+      ctxW.beginPath(); ctxW.moveTo(sx(gx), 0); ctxW.lineTo(sx(gx), HW); ctxW.stroke();
+    }
+
+    // 坐标轴
+    ctxW.strokeStyle = getCss("--axis");
+    ctxW.lineWidth = 1.5;
+    ctxW.beginPath(); ctxW.moveTo(0, sy(0)); ctxW.lineTo(WW, sy(0)); ctxW.stroke();
+    ctxW.beginPath(); ctxW.moveTo(sx(xMin), 0); ctxW.lineTo(sx(xMin), HW); ctxW.stroke();
+
+    // 刻度标签：显示相对偏移量(0、π、2π、3π、4π)
+    ctxW.fillStyle = getCss("--muted");
+    ctxW.font = "11px Consolas, monospace";
+    ctxW.textAlign = "center";
+    ctxW.textBaseline = "top";
+    var piLabels = ["0", "π", "2π", "3π", "4π"];
+    for (var pi = 0; pi <= 4; pi++) {
+      ctxW.fillText(piLabels[pi], sx(xMin + pi * Math.PI), sy(0) + 4);
+    }
+    ctxW.textAlign = "right";
+    ctxW.textBaseline = "middle";
+    var yStep = maxA <= 2 ? 0.5 : 1;
+    for (var yy = -Math.floor(maxA); yy <= Math.floor(maxA); yy += yStep) {
+      if (Math.abs(yy) > 0.01)
+        ctxW.fillText(fmt(yy, 1), sx(0) - 4, sy(yy));
+    }
+
+    // 振幅标注(波峰/波谷虚线)
+    ctxW.strokeStyle = getCss("--wave1");
+    ctxW.globalAlpha = 0.25;
+    ctxW.lineWidth = 1;
+    ctxW.setLineDash([6, 4]);
+    ctxW.beginPath(); ctxW.moveTo(0, sy(A)); ctxW.lineTo(WW, sy(A)); ctxW.stroke();
+    ctxW.beginPath(); ctxW.moveTo(0, sy(-A)); ctxW.lineTo(WW, sy(-A)); ctxW.stroke();
+    ctxW.setLineDash([]);
+    ctxW.globalAlpha = 1;
+
+    // A 标注
+    ctxW.fillStyle = getCss("--wave1");
+    ctxW.font = "italic 12px 'Cambria Math','Times New Roman',serif";
+    ctxW.textAlign = "left";
+    ctxW.textBaseline = "middle";
+    ctxW.fillText("A=" + fmt(A), sx(0) + 4, sy(A));
+
+    // 叠加波(画在波 1/2 之前,作为底层)
+    if (showWave2) {
+      ctxW.strokeStyle = getCss("--wavesum");
+      ctxW.lineWidth = 2.5;
+      ctxW.globalAlpha = 0.75;
+      ctxW.beginPath();
+      var N = Math.max(300, Math.floor(WW));
+      for (var i = 0; i <= N; i++) {
+        var x = xMin + (xMax - xMin) * i / N;
+        var ySum = A * Math.sin(omega * x + phi) + A2 * Math.sin(omega2 * x + phi2);
+        if (i === 0) ctxW.moveTo(sx(x), sy(ySum));
+        else ctxW.lineTo(sx(x), sy(ySum));
+      }
+      ctxW.stroke();
+      ctxW.globalAlpha = 1;
+    }
+
+    // 波 2
+    if (showWave2) {
+      ctxW.strokeStyle = getCss("--wave2");
+      ctxW.lineWidth = 1.8;
+      ctxW.setLineDash([8, 5]);
+      ctxW.beginPath();
+      N = Math.max(300, Math.floor(WW));
+      for (var j = 0; j <= N; j++) {
+        var xj = xMin + (xMax - xMin) * j / N;
+        var yj = A2 * Math.sin(omega2 * xj + phi2);
+        if (j === 0) ctxW.moveTo(sx(xj), sy(yj));
+        else ctxW.lineTo(sx(xj), sy(yj));
+      }
+      ctxW.stroke();
+      ctxW.setLineDash([]);
+    }
+
+    // 波 1(主波,最粗最亮)
+    ctxW.strokeStyle = getCss("--wave1");
+    ctxW.lineWidth = 2.5;
+    ctxW.beginPath();
+    var N1 = Math.max(300, Math.floor(WW));
+    for (var k = 0; k <= N1; k++) {
+      var xk = xMin + (xMax - xMin) * k / N1;
+      var yk = A * Math.sin(omega * xk + phi);
+      if (k === 0) ctxW.moveTo(sx(xk), sy(yk));
+      else ctxW.lineTo(sx(xk), sy(yk));
+    }
+    ctxW.stroke();
+
+    // 当前时刻竖线(与单位圆同步)
+    // 滚动窗口下 xMark 固定在窗口左端 animT，角度 ω·animT+φ 与单位圆完全一致
+    var xMark = animT;
+    var yMark = A * Math.sin(omega * xMark + phi);
+
+    ctxW.strokeStyle = getCss("--accent");
+    ctxW.lineWidth = 1.5;
+    ctxW.setLineDash([5, 4]);
+    ctxW.beginPath(); ctxW.moveTo(sx(xMark), 0); ctxW.lineTo(sx(xMark), HW); ctxW.stroke();
+    ctxW.setLineDash([]);
+
+    // 当前点
+    ctxW.fillStyle = getCss("--wave1");
+    ctxW.strokeStyle = getCss("--bg");
+    ctxW.lineWidth = 2;
+    ctxW.beginPath(); ctxW.arc(sx(xMark), sy(yMark), 6, 0, Math.PI * 2);
+    ctxW.fill(); ctxW.stroke();
+
+    // 周期标注:在第一个完整周期上画双头箭头
+    var T = 2 * Math.PI / omega;
+    if (T <= xMax - xMin) {
+      var arrowY = sy(-A) + 16;
+      // 找窗口内第一个相位零点(ωx+φ=2kπ 即 x = (2kπ-φ)/ω)
+      // 取 xMin 之后最近的一个
+      var x0Phase = ((-phi / omega) % T + T) % T;
+      // 调整到 xMin 之后的第一个零点
+      x0Phase = x0Phase + Math.ceil((xMin - x0Phase) / T) * T;
+      var xArL = sx(x0Phase);
+      var xArR = sx(x0Phase + T);
+      if (x0Phase + T <= xMax) {
+        // 双头箭头
+        ctxW.strokeStyle = getCss("--tangent");
+        ctxW.lineWidth = 1.5;
+        ctxW.beginPath(); ctxW.moveTo(xArL, arrowY); ctxW.lineTo(xArR, arrowY); ctxW.stroke();
+        // 左箭头
+        ctxW.beginPath(); ctxW.moveTo(xArL, arrowY); ctxW.lineTo(xArL + 7, arrowY - 4); ctxW.stroke();
+        ctxW.beginPath(); ctxW.moveTo(xArL, arrowY); ctxW.lineTo(xArL + 7, arrowY + 4); ctxW.stroke();
+        // 右箭头
+        ctxW.beginPath(); ctxW.moveTo(xArR, arrowY); ctxW.lineTo(xArR - 7, arrowY - 4); ctxW.stroke();
+        ctxW.beginPath(); ctxW.moveTo(xArR, arrowY); ctxW.lineTo(xArR - 7, arrowY + 4); ctxW.stroke();
+        // T 标签
+        ctxW.fillStyle = getCss("--tangent");
+        ctxW.font = "italic 12px 'Cambria Math','Times New Roman',serif";
+        ctxW.textAlign = "center";
+        ctxW.textBaseline = "top";
+        ctxW.fillText("T=" + fmt(T), (xArL + xArR) / 2, arrowY + 3);
+      }
+    }
+  }
+
+  function redrawAll() {
+    drawCircle();
+    drawWave();
+  }
+
+  // ===== Resize =====
+  function resizeCanvas(cv, ctx, onDone) {
+    var rect = cv.parentElement.getBoundingClientRect();
+    var w = rect.width, h = rect.height;
+    cv.width  = Math.round(w * DPR);
+    cv.height = Math.round(h * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    onDone(w, h);
+  }
+  function resize() {
+    resizeCanvas(cvC, ctxC, function (w, h) { WC = w; HC = h; });
+    resizeCanvas(cvW, ctxW, function (w, h) { WW = w; HW = h; });
+    redrawAll();
+  }
+  window.addEventListener("resize", resize);
+
+  // ===== 动画循环 =====
+  function tick(ts) {
+    if (!playing) return;
+    if (lastTS !== null) {
+      var dt = (ts - lastTS) / 1000;
+      animT += SPEED * dt;
+    }
+    lastTS = ts;
+    redrawAll();
+    rafId = requestAnimationFrame(tick);
+  }
+
+  window.togglePlay = function () {
+    playing = !playing;
+    document.getElementById("btnPlay").textContent = playing ? t("btnPause") : t("btnPlay");
+    if (playing) {
+      lastTS = null;
+      rafId = requestAnimationFrame(tick);
+    } else {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+  };
+
+  // ===== 滑块绑定 =====
+  function bindSlider(id, getter, setter, numId, afterChange) {
+    var el = document.getElementById(id);
+    el.addEventListener("input", function () {
+      setter(parseFloat(el.value));
+      document.getElementById(numId).textContent = fmt(getter(), 2);
+      if (afterChange) afterChange();
+      updateFormulas();
+      redrawAll();
+    });
+  }
+  bindSlider("sA",     function(){ return A; },     function(v){ A = v; },       "numA");
+  bindSlider("sOmega", function(){ return omega; }, function(v){ omega = v; },   "numOmega");
+  bindSlider("sPhi",   function(){ return phi; },   function(v){ phi = v; },     "numPhi");
+  bindSlider("sA2",    function(){ return A2; },    function(v){ A2 = v; },      "numA2",    clearPreset);
+  bindSlider("sOmega2",function(){ return omega2; },function(v){ omega2 = v; },  "numOmega2",clearPreset);
+  bindSlider("sPhi2",  function(){ return phi2; },  function(v){ phi2 = v; },    "numPhi2",  clearPreset);
+
+  // 波 2 开关
+  document.getElementById("chkWave2").addEventListener("change", function () {
+    showWave2 = this.checked;
+    document.getElementById("wave2Block").classList.toggle("enabled", showWave2);
+    updateFormulas();
+    redrawAll();
+  });
+
+  // ===== 预设 =====
+  var PRESETS = {
+    basic: { A:1, omega:1, phi:0, A2:1, omega2:1, phi2:Math.PI, wave2:false },
+    phase: { A:1, omega:1, phi:Math.PI/2, A2:1, omega2:1, phi2:0, wave2:false },
+    freq:  { A:1, omega:2, phi:0, A2:1, omega2:1, phi2:0, wave2:false },
+    super: { A:1, omega:1, phi:0, A2:1, omega2:1, phi2:Math.PI, wave2:true }
+  };
+  var activePreset = "basic";
+
+  function clearPreset() { activePreset = null; updatePresetBtns(); }
+  function updatePresetBtns() {
+    ["basic","phase","freq","super"].forEach(function(k){
+      document.getElementById("preset" + k.charAt(0).toUpperCase() + k.slice(1))
+        .classList.toggle("active", k === activePreset);
+    });
+  }
+
+  window.applyPreset = function (key) {
+    var p = PRESETS[key];
+    A = p.A; omega = p.omega; phi = p.phi;
+    A2 = p.A2; omega2 = p.omega2; phi2 = p.phi2;
+    showWave2 = p.wave2;
+
+    document.getElementById("sA").value     = A;     document.getElementById("numA").textContent     = fmt(A);
+    document.getElementById("sOmega").value = omega; document.getElementById("numOmega").textContent = fmt(omega);
+    document.getElementById("sPhi").value   = phi;   document.getElementById("numPhi").textContent   = fmt(phi);
+    document.getElementById("sA2").value    = A2;    document.getElementById("numA2").textContent    = fmt(A2);
+    document.getElementById("sOmega2").value= omega2;document.getElementById("numOmega2").textContent= fmt(omega2);
+    document.getElementById("sPhi2").value  = phi2;  document.getElementById("numPhi2").textContent  = fmt(phi2);
+
+    document.getElementById("chkWave2").checked = showWave2;
+    document.getElementById("wave2Block").classList.toggle("enabled", showWave2);
+    activePreset = key;
+    updatePresetBtns();
+    updateFormulas();
+    redrawAll();
+  };
+
+  // ===== 初始化 =====
+  applyLang();
+  // 初始化各 num display
+  document.getElementById("numA").textContent      = fmt(A);
+  document.getElementById("numOmega").textContent  = fmt(omega);
+  document.getElementById("numPhi").textContent    = fmt(phi);
+  document.getElementById("numA2").textContent     = fmt(A2);
+  document.getElementById("numOmega2").textContent = fmt(omega2);
+  document.getElementById("numPhi2").textContent   = fmt(phi2);
+  updatePresetBtns();
+  document.getElementById("wave2Block").classList.toggle("enabled", showWave2);
+
+  // 延迟到 DOM 布局完成再测量
+  requestAnimationFrame(function () { resize(); });
+})();
+</script>
+</body>
+</html>

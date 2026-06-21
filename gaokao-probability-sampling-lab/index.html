@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>概率采样实验室 · 分布 / 期望 / 大数定律</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --panel: #1a212b;
+    --panel2: #232c38;
+    --ink: #e6edf3;
+    --muted: #93a1b1;
+    --accent: #4fc3f7;
+    --bar: #4fc3f7;       /* histogram bars */
+    --curve: #ffd166;     /* theory curve */
+    --mean-line: #58d68d; /* sample mean line */
+    --theory-mean: #ef7a85; /* theoretical mean */
+    --grid: #2a3441;
+    --axis: #5b6b7b;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    height: 100%;
+  }
+  .app {
+    display: flex;
+    flex-direction: row;
+    min-height: 100vh;
+  }
+  .stage {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    min-width: 0;
+  }
+  .stage-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+  .stage h1 {
+    font-size: 18px;
+    margin: 0;
+    font-weight: 600;
+  }
+  .stage .sub {
+    color: var(--muted);
+    font-size: 13px;
+    margin: 0 0 10px 0;
+  }
+
+  /* two-canvas layout: histogram on top, convergence below */
+  .canvas-col {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    gap: 10px;
+    min-height: 0;
+  }
+  .canvas-wrap {
+    position: relative;
+    background: #0b0f14;
+    border: 1px solid var(--grid);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .canvas-wrap.hist { flex: 3 1 0; min-height: 240px; }
+  .canvas-wrap.conv { flex: 2 1 0; min-height: 140px; }
+  canvas { display: block; width: 100%; height: 100%; }
+  .canvas-label {
+    position: absolute;
+    top: 8px; left: 12px;
+    font-size: 11.5px;
+    color: var(--muted);
+    pointer-events: none;
+    letter-spacing: .04em;
+  }
+
+  /* lang switch */
+  .lang-switch {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .lang-switch button {
+    background: none;
+    border: none;
+    padding: 2px 6px;
+    font-size: 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--muted);
+    transition: color .15s, background .15s;
+  }
+  .lang-switch button:hover { color: var(--ink); background: var(--panel2); }
+  .lang-switch button.active { color: var(--accent); font-weight: 700; background: none; }
+  .lang-switch .sep { color: var(--grid); }
+
+  .panel {
+    flex: 0 0 340px;
+    background: var(--panel);
+    border-left: 1px solid var(--grid);
+    padding: 18px;
+    overflow-y: auto;
+    max-height: 100vh;
+  }
+  .panel h2 {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    margin: 18px 0 8px;
+    border-bottom: 1px solid var(--grid);
+    padding-bottom: 6px;
+  }
+  .panel h2:first-child { margin-top: 0; }
+
+  .expr {
+    background: var(--panel2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: "Cambria Math", "Times New Roman", serif;
+    font-size: 16px;
+    margin: 6px 0;
+    line-height: 1.7;
+    word-break: break-word;
+  }
+  math { font-size: 1.05em; vertical-align: -0.12em; }
+  .expr math { font-size: 1.1em; }
+  var { font-family: "Cambria Math", "Times New Roman", serif; font-style: italic; }
+
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 8px 0;
+    font-size: 14px;
+  }
+  .row label { color: var(--muted); }
+  .row .val {
+    font-variant-numeric: tabular-nums;
+    font-family: "Consolas", monospace;
+    font-size: 14px;
+  }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .slider-row { margin: 10px 0; }
+  .slider-row .head {
+    display: flex; justify-content: space-between;
+    font-size: 13px; margin-bottom: 4px;
+  }
+  .slider-row .head .name { color: var(--ink); font-weight: 600; }
+  .slider-row .head .num {
+    font-family: "Consolas", monospace; color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .readout {
+    background: var(--panel2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: "Consolas", monospace;
+    font-size: 13px;
+    line-height: 1.8;
+  }
+  .readout .k { color: var(--muted); }
+  .readout .v { float: right; font-variant-numeric: tabular-nums; color: var(--accent); }
+  .swatch { display:inline-block; width:11px; height:11px; border-radius:3px; vertical-align:middle; margin-right:6px; }
+
+  .note {
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--muted);
+  }
+  .note b { color: var(--ink); }
+  .legend { font-size: 12.5px; line-height: 1.95; color: var(--muted); }
+
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  button {
+    background: var(--panel2);
+    color: var(--ink);
+    border: 1px solid var(--grid);
+    border-radius: 7px;
+    padding: 7px 11px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  button:hover { background: #2c3848; border-color: var(--accent); }
+  button.active { border-color: var(--accent); color: var(--accent); }
+
+  /* distribution toggle */
+  .dist-toggle {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .dist-toggle button {
+    flex: 1;
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+
+  /* animate button special style */
+  #btnAnimate {
+    background: #1c3447;
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 600;
+    min-width: 90px;
+  }
+  #btnAnimate:hover { background: #234059; }
+  #btnAnimate.running { background: #2d1c14; border-color: var(--theory-mean); color: var(--theory-mean); }
+
+  .compliance {
+    margin-top: 16px; font-size: 11.5px; color: #6b7886;
+    line-height: 1.6; border-top: 1px dashed var(--grid); padding-top: 10px;
+  }
+
+  /* sliders hidden when not relevant */
+  .binom-only, .norm-only { transition: opacity .2s; }
+  .binom-only.hidden, .norm-only.hidden { display: none; }
+
+  @media (max-width: 860px) {
+    .app { flex-direction: column; }
+    .panel { flex-basis: auto; border-left: none; border-top: 1px solid var(--grid); max-height: none; }
+    .canvas-wrap.hist { min-height: 200px; }
+    .canvas-wrap.conv { min-height: 120px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="stage">
+    <div class="stage-header">
+      <h1 id="titleH1">概率采样实验室 — 分布 · 期望 · 大数定律</h1>
+      <div class="lang-switch">
+        <button id="btnZh" class="active" onclick="setLang('zh')">中文</button>
+        <span class="sep">|</span>
+        <button id="btnEn" onclick="setLang('en')">EN</button>
+      </div>
+    </div>
+    <p class="sub" id="subtitle">点击「开始采样」逐点投点，直方图随样本量增大逼近理论分布曲线；下方折线展示样本均值收敛到期望（大数定律）。</p>
+
+    <div class="canvas-col">
+      <div class="canvas-wrap hist">
+        <canvas id="cvHist"></canvas>
+        <span class="canvas-label" id="lblHist">频率直方图 vs 理论分布</span>
+      </div>
+      <div class="canvas-wrap conv">
+        <canvas id="cvConv"></canvas>
+        <span class="canvas-label" id="lblConv">样本均值收敛（大数定律）</span>
+      </div>
+    </div>
+  </div>
+
+  <aside class="panel">
+    <h2 id="h2Dist">分布类型</h2>
+    <div class="dist-toggle">
+      <button id="btnBinom" class="active" onclick="switchDist('binom')">二项分布</button>
+      <button id="btnNorm" onclick="switchDist('norm')">正态分布</button>
+    </div>
+
+    <!-- Binomial formula display -->
+    <div id="formulaBinom" class="expr">
+      <!-- P(X=k) = C(n,k) p^k (1-p)^(n-k) -->
+      <math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+        <mrow>
+          <mi>P</mi><mo>(</mo><mi>X</mi><mo>=</mo><mi>k</mi><mo>)</mo>
+          <mo>=</mo>
+          <msubsup><mi>C</mi><mi>n</mi><mi>k</mi></msubsup>
+          <msup><mi>p</mi><mi>k</mi></msup>
+          <msup><mo stretchy="false">(</mo>
+            <mrow><mn>1</mn><mo>&#x2212;</mo><mi>p</mi></mrow>
+          </msup>
+          <msup><mo>)</mo><mrow><mi>n</mi><mo>&#x2212;</mo><mi>k</mi></mrow></msup>
+        </mrow>
+      </math>
+    </div>
+    <!-- Normal formula display -->
+    <div id="formulaNorm" class="expr" style="display:none">
+      <!-- f(x) = 1/(sigma sqrt(2pi)) exp(-(x-mu)^2 / 2sigma^2) -->
+      <math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+        <mrow>
+          <mi>f</mi><mo>(</mo><mi>x</mi><mo>)</mo>
+          <mo>=</mo>
+          <mfrac>
+            <mn>1</mn>
+            <mrow><mi>&#x03C3;</mi><msqrt><mrow><mn>2</mn><mi>&#x03C0;</mi></mrow></msqrt></mrow>
+          </mfrac>
+          <msup><mi>e</mi>
+            <mrow>
+              <mo>&#x2212;</mo>
+              <mfrac>
+                <msup><mrow><mo>(</mo><mi>x</mi><mo>&#x2212;</mo><mi>&#x03BC;</mi><mo>)</mo></mrow><mn>2</mn></msup>
+                <mrow><mn>2</mn><msup><mi>&#x03C3;</mi><mn>2</mn></msup></mrow>
+              </mfrac>
+            </mrow>
+          </msup>
+        </mrow>
+      </math>
+    </div>
+
+    <h2 id="h2Stats">统计量</h2>
+    <div class="readout" id="statsBox">
+      <div><span class="k">
+        <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>E</mi><mo>(</mo><mi>X</mi><mo>)</mo></math>
+        <span id="lblMuKey"></span>
+      </span><span class="v" id="roMu">—</span></div>
+      <div><span class="k">
+        <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>D</mi><mo>(</mo><mi>X</mi><mo>)</mo></math>
+        <span id="lblSigmaKey"></span>
+      </span><span class="v" id="roSigma">—</span></div>
+      <div><span class="k" id="lblSampleNKey">当前样本量 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>n</mi></math></span><span class="v" id="roSampleN">0</span></div>
+      <div><span class="k" id="lblSampleMeanKey">样本均值 <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>X</mi><mo>&#x00AF;</mo></mover></math></span><span class="v" id="roSampleMean">—</span></div>
+    </div>
+
+    <h2 id="h2Params">调整参数</h2>
+
+    <!-- Binom params: n_trials (per sample trial), p, total_n_samples -->
+    <div class="binom-only">
+      <div class="slider-row">
+        <div class="head">
+          <span class="name" id="lblTrials">
+            <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>n</mi></math>（每次试验次数）
+          </span>
+          <span class="num" id="numTrials">10</span>
+        </div>
+        <input type="range" id="sTrials" min="2" max="30" step="1" value="10">
+      </div>
+      <div class="slider-row">
+        <div class="head">
+          <span class="name" id="lblP">
+            <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>p</mi></math>（成功概率）
+          </span>
+          <span class="num" id="numP">0.50</span>
+        </div>
+        <input type="range" id="sP" min="0.05" max="0.95" step="0.05" value="0.5">
+      </div>
+    </div>
+
+    <!-- Normal params: mu, sigma -->
+    <div class="norm-only hidden">
+      <div class="slider-row">
+        <div class="head">
+          <span class="name" id="lblMu">
+            <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>&#x03BC;</mi></math>（均值）
+          </span>
+          <span class="num" id="numMu">0.00</span>
+        </div>
+        <input type="range" id="sMu" min="-4" max="4" step="0.1" value="0">
+      </div>
+      <div class="slider-row">
+        <div class="head">
+          <span class="name" id="lblSigma">
+            <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>&#x03C3;</mi></math>（标准差）
+          </span>
+          <span class="num" id="numSigma">1.00</span>
+        </div>
+        <input type="range" id="sSigma" min="0.3" max="3" step="0.1" value="1">
+      </div>
+    </div>
+
+    <!-- Shared: total samples slider -->
+    <div class="slider-row">
+      <div class="head">
+        <span class="name" id="lblMaxN">最大样本量</span>
+        <span class="num" id="numMaxN">300</span>
+      </div>
+      <input type="range" id="sMaxN" min="50" max="2000" step="50" value="300">
+    </div>
+
+    <div class="btn-row">
+      <button id="btnAnimate" onclick="toggleAnimate()">▶ 开始采样</button>
+      <button id="btnReset" onclick="resetSamples()">重置</button>
+    </div>
+
+    <h2 id="h2Presets">预设场景</h2>
+    <div class="btn-row">
+      <button id="presetFair" class="active" onclick="applyPreset('fair')"></button>
+      <button id="presetBiased" onclick="applyPreset('biased')"></button>
+      <button id="presetNorm" onclick="applyPreset('norm')"></button>
+      <button id="presetLarge" onclick="applyPreset('large')"></button>
+    </div>
+
+    <h2 id="h2Legend">图例</h2>
+    <div class="legend" id="legendBox">
+      <span class="swatch" style="background:var(--bar);opacity:0.7"></span><span id="lgBar">蓝色柱：频率直方图（观测）</span><br>
+      <span class="swatch" style="background:var(--curve)"></span><span id="lgCurve">黄色曲线：理论分布</span><br>
+      <span class="swatch" style="background:var(--mean-line)"></span><span id="lgMeanLine">绿色折线：样本均值 <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>X</mi><mo>&#x00AF;</mo></mover></math></span><br>
+      <span class="swatch" style="background:var(--theory-mean)"></span><span id="lgTheoryMean">红色虚线：理论期望 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>E</mi><mo>(</mo><mi>X</mi><mo>)</mo></math></span>
+    </div>
+
+    <h2 id="h2Explain">概念说明</h2>
+    <p class="note" id="explainBox">
+      <b>大数定律</b>指出，随机变量的<b>样本均值</b>在样本量 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>n</mi></math> 增大时，以概率 1 收敛到<b>理论期望</b>
+      <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>E</mi><mo>(</mo><mi>X</mi><mo>)</mo></math>。<br>
+      · 二项分布
+      <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>B</mi><mo>(</mo><mi>n</mi><mo>,</mo><mi>p</mi><mo>)</mo></math>：
+      <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>E</mi><mo>(</mo><mi>X</mi><mo>)</mo><mo>=</mo><mi>n</mi><mi>p</mi></math>，
+      <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>D</mi><mo>(</mo><mi>X</mi><mo>)</mo><mo>=</mo><mi>n</mi><mi>p</mi><mo>(</mo><mn>1</mn><mo>&#x2212;</mo><mi>p</mi><mo>)</mo></math>。<br>
+      · 正态分布
+      <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>N</mi><mo>(</mo><mi>&#x03BC;</mi><mo>,</mo><msup><mi>&#x03C3;</mi><mn>2</mn></msup><mo>)</mo></math>：
+      <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>E</mi><mo>(</mo><mi>X</mi><mo>)</mo><mo>=</mo><mi>&#x03BC;</mi></math>，
+      <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>D</mi><mo>(</mo><mi>X</mi><mo>)</mo><mo>=</mo><msup><mi>&#x03C3;</mi><mn>2</mn></msup></math>。<br>
+      直方图柱越多（<math xmlns="http://www.w3.org/1998/Math/MathML"><mi>n</mi></math> 越大），频率分布越贴近理论曲线，体现<b>频率稳定性</b>。
+    </p>
+
+    <div class="compliance" id="complianceBox">
+      合规声明：本 demo 仅使用<b>自绘抽象概率模型与参数</b>（二项/正态分布族）演示统计概念，未复制任何高考原题文字、原卷图片或答案图，不是题目搬运。
+    </div>
+  </aside>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ===== i18n =====
+  var I18N = {
+    zh: {
+      docTitle:   "概率采样实验室 · 分布 / 期望 / 大数定律",
+      titleH1:    "概率采样实验室 — 分布 · 期望 · 大数定律",
+      subtitle:   "点击「开始采样」逐点投点，直方图随样本量增大逼近理论分布曲线；下方折线展示样本均值收敛到期望（大数定律）。",
+      h2Dist:     "分布类型",
+      h2Stats:    "统计量",
+      h2Params:   "调整参数",
+      h2Presets:  "预设场景",
+      h2Legend:   "图例",
+      h2Explain:  "概念说明",
+      btnBinom:   "二项分布",
+      btnNorm:    "正态分布",
+      lblMuKey:   "（期望）",
+      lblSigmaKey:"（方差）",
+      lblSampleNKey:   "当前样本量",
+      lblSampleMeanKey:"样本均值",
+      lblTrials:  "n（每次试验次数）",
+      lblP:       "p（成功概率）",
+      lblMu:      "μ（均值）",
+      lblSigma:   "σ（标准差）",
+      lblMaxN:    "最大样本量",
+      btnStart:   "▶ 开始采样",
+      btnPause:   "⏸ 暂停",
+      btnReset:   "重置",
+      presetFair:   "公平硬币",
+      presetBiased: "偏置硬币",
+      presetNorm:   "标准正态",
+      presetLarge:  "大样本",
+      lblHist:    "频率直方图 vs 理论分布",
+      lblConv:    "样本均值收敛（大数定律）",
+      lgBar:      "蓝色柱：频率直方图（观测）",
+      lgCurve:    "黄色曲线：理论分布",
+      lgMeanLine: "绿色折线：样本均值",
+      lgTheoryMean:"红色虚线：理论期望",
+      convTitle:  "样本均值收敛曲线",
+      canvasWaiting: "点击「开始采样」开始动画",
+      explain:
+        '<b>大数定律</b>指出，随机变量的<b>样本均值</b>在样本量 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>n</mi></math> 增大时，以概率 1 收敛到<b>理论期望</b>'
+        + '<math xmlns="http://www.w3.org/1998/Math/MathML"><mi>E</mi><mo>(</mo><mi>X</mi><mo>)</mo></math>。<br>'
+        + '· 二项分布 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>B</mi><mo>(</mo><mi>n</mi><mo>,</mo><mi>p</mi><mo>)</mo></math>：'
+        + '<math xmlns="http://www.w3.org/1998/Math/MathML"><mi>E</mi><mo>(</mo><mi>X</mi><mo>)</mo><mo>=</mo><mi>n</mi><mi>p</mi></math>，'
+        + '<math xmlns="http://www.w3.org/1998/Math/MathML"><mi>D</mi><mo>(</mo><mi>X</mi><mo>)</mo><mo>=</mo><mi>n</mi><mi>p</mi><mo>(</mo><mn>1</mn><mo>&#x2212;</mo><mi>p</mi><mo>)</mo></math>。<br>'
+        + '· 正态分布 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>N</mi><mo>(</mo><mi>&#x03BC;</mi><mo>,</mo><msup><mi>&#x03C3;</mi><mn>2</mn></msup><mo>)</mo></math>：'
+        + '<math xmlns="http://www.w3.org/1998/Math/MathML"><mi>E</mi><mo>(</mo><mi>X</mi><mo>)</mo><mo>=</mo><mi>&#x03BC;</mi></math>，'
+        + '<math xmlns="http://www.w3.org/1998/Math/MathML"><mi>D</mi><mo>(</mo><mi>X</mi><mo>)</mo><mo>=</mo><msup><mi>&#x03C3;</mi><mn>2</mn></msup></math>。<br>'
+        + '直方图柱越多，频率分布越贴近理论曲线，体现<b>频率稳定性</b>。',
+      compliance: '合规声明：本 demo 仅使用<b>自绘抽象概率模型与参数</b>（二项/正态分布族）演示统计概念，未复制任何高考原题文字、原卷图片或答案图，不是题目搬运。'
+    },
+    en: {
+      docTitle:   "Probability Sampling Lab · Distributions / Expectation / Law of Large Numbers",
+      titleH1:    "Probability Sampling Lab — Distributions · Expectation · LLN",
+      subtitle:   "Click 'Start Sampling' to add points one by one; the histogram converges to the theoretical distribution as n grows, illustrating the Law of Large Numbers.",
+      h2Dist:     "Distribution Type",
+      h2Stats:    "Statistics",
+      h2Params:   "Parameters",
+      h2Presets:  "Presets",
+      h2Legend:   "Legend",
+      h2Explain:  "Key Concepts",
+      btnBinom:   "Binomial",
+      btnNorm:    "Normal",
+      lblMuKey:   " (expectation)",
+      lblSigmaKey:" (variance)",
+      lblSampleNKey:   "Sample size n",
+      lblSampleMeanKey:"Sample mean",
+      lblTrials:  "n (trials per experiment)",
+      lblP:       "p (success probability)",
+      lblMu:      "μ (mean)",
+      lblSigma:   "σ (std dev)",
+      lblMaxN:    "Max sample size",
+      btnStart:   "▶ Start Sampling",
+      btnPause:   "⏸ Pause",
+      btnReset:   "Reset",
+      presetFair:   "Fair Coin",
+      presetBiased: "Biased Coin",
+      presetNorm:   "Std Normal",
+      presetLarge:  "Large Sample",
+      lblHist:    "Frequency Histogram vs Theory",
+      lblConv:    "Sample Mean Convergence (LLN)",
+      lgBar:      "Blue bars: observed frequency histogram",
+      lgCurve:    "Yellow curve: theoretical distribution",
+      lgMeanLine: "Green line: sample mean",
+      lgTheoryMean:"Red dashed: theoretical expectation",
+      convTitle:  "Sample Mean Convergence",
+      canvasWaiting: "Click 'Start Sampling' to begin animation",
+      explain:
+        'The <b>Law of Large Numbers</b> states that the <b>sample mean</b> converges in probability to the <b>theoretical expectation</b> '
+        + '<math xmlns="http://www.w3.org/1998/Math/MathML"><mi>E</mi><mo>(</mo><mi>X</mi><mo>)</mo></math> as sample size grows.<br>'
+        + '· Binomial <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>B</mi><mo>(</mo><mi>n</mi><mo>,</mo><mi>p</mi><mo>)</mo></math>: '
+        + '<math xmlns="http://www.w3.org/1998/Math/MathML"><mi>E</mi><mo>(</mo><mi>X</mi><mo>)</mo><mo>=</mo><mi>n</mi><mi>p</mi></math>, '
+        + '<math xmlns="http://www.w3.org/1998/Math/MathML"><mi>D</mi><mo>(</mo><mi>X</mi><mo>)</mo><mo>=</mo><mi>n</mi><mi>p</mi><mo>(</mo><mn>1</mn><mo>&#x2212;</mo><mi>p</mi><mo>)</mo></math>.<br>'
+        + '· Normal <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>N</mi><mo>(</mo><mi>&#x03BC;</mi><mo>,</mo><msup><mi>&#x03C3;</mi><mn>2</mn></msup><mo>)</mo></math>: '
+        + '<math xmlns="http://www.w3.org/1998/Math/MathML"><mi>E</mi><mo>(</mo><mi>X</mi><mo>)</mo><mo>=</mo><mi>&#x03BC;</mi></math>, '
+        + '<math xmlns="http://www.w3.org/1998/Math/MathML"><mi>D</mi><mo>(</mo><mi>X</mi><mo>)</mo><mo>=</mo><msup><mi>&#x03C3;</mi><mn>2</mn></msup></math>.<br>'
+        + 'As more samples accumulate, the histogram closely follows the theoretical curve — illustrating <b>frequency stability</b>.',
+      compliance: 'Disclaimer: This demo uses only <b>abstract probability models with adjustable parameters</b> (binomial/normal family) for conceptual visualization. No original exam questions, scanned papers, or answer images have been reproduced.'
+    }
+  };
+
+  var lang = "zh";
+  window.setLang = function (l) {
+    if (l === lang) return;
+    lang = l;
+    document.documentElement.lang = l === "zh" ? "zh-CN" : "en";
+    document.getElementById("btnZh").classList.toggle("active", l === "zh");
+    document.getElementById("btnEn").classList.toggle("active", l === "en");
+    applyLang();
+    drawHist();
+    drawConv();
+  };
+  function t(k) { return I18N[lang][k]; }
+
+  function applyLang() {
+    var L = I18N[lang];
+    document.title = L.docTitle;
+    document.getElementById("titleH1").textContent  = L.titleH1;
+    document.getElementById("subtitle").textContent = L.subtitle;
+    document.getElementById("h2Dist").textContent    = L.h2Dist;
+    document.getElementById("h2Stats").textContent   = L.h2Stats;
+    document.getElementById("h2Params").textContent  = L.h2Params;
+    document.getElementById("h2Presets").textContent = L.h2Presets;
+    document.getElementById("h2Legend").textContent  = L.h2Legend;
+    document.getElementById("h2Explain").textContent = L.h2Explain;
+    document.getElementById("btnBinom").textContent  = L.btnBinom;
+    document.getElementById("btnNorm").textContent   = L.btnNorm;
+    document.getElementById("lblMuKey").textContent     = L.lblMuKey;
+    document.getElementById("lblSigmaKey").textContent  = L.lblSigmaKey;
+    document.getElementById("lblHist").textContent   = L.lblHist;
+    document.getElementById("lblConv").textContent   = L.lblConv;
+    document.getElementById("lgBar").textContent     = L.lgBar;
+    document.getElementById("lgCurve").textContent   = L.lgCurve;
+    document.getElementById("lgMeanLine").innerHTML  = L.lgMeanLine + ' <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>X</mi><mo>&#x00AF;</mo></mover></math>';
+    document.getElementById("lgTheoryMean").innerHTML = L.lgTheoryMean + ' <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>E</mi><mo>(</mo><mi>X</mi><mo>)</mo></math>';
+    document.getElementById("lblMaxN").textContent   = L.lblMaxN;
+    document.getElementById("btnReset").textContent  = L.btnReset;
+    document.getElementById("presetFair").textContent   = L.presetFair;
+    document.getElementById("presetBiased").textContent = L.presetBiased;
+    document.getElementById("presetNorm").textContent   = L.presetNorm;
+    document.getElementById("presetLarge").textContent  = L.presetLarge;
+    document.getElementById("explainBox").innerHTML    = L.explain;
+    document.getElementById("complianceBox").innerHTML = L.compliance;
+
+    // btn animate
+    var animBtn = document.getElementById("btnAnimate");
+    animBtn.textContent = animating ? L.btnPause : L.btnStart;
+
+    // binom-specific
+    var lblT = document.getElementById("lblTrials");
+    lblT.innerHTML = L.lblTrials + ' <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>n</mi></math>';
+    var lblPEl = document.getElementById("lblP");
+    lblPEl.innerHTML = L.lblP + ' <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>p</mi></math>';
+    var lblMuEl = document.getElementById("lblMu");
+    lblMuEl.innerHTML = L.lblMu + ' <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>&#x03BC;</mi></math>';
+    var lblSigEl = document.getElementById("lblSigma");
+    lblSigEl.innerHTML = L.lblSigma + ' <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>&#x03C3;</mi></math>';
+
+    // sample-n / mean labels (contain MathML already in HTML, just update text prefix)
+    var snEl = document.getElementById("lblSampleNKey");
+    snEl.innerHTML = L.lblSampleNKey + ' <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>n</mi></math>';
+    var smEl = document.getElementById("lblSampleMeanKey");
+    smEl.innerHTML = L.lblSampleMeanKey + ' <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>X</mi><mo>&#x00AF;</mo></mover></math>';
+
+    updateReadouts();
+  }
+
+  // ===== State =====
+  var distType = "binom"; // "binom" | "norm"
+
+  // Binom params
+  var nTrials = 10;
+  var p = 0.5;
+
+  // Normal params
+  var mu = 0.0;
+  var sigma = 1.0;
+
+  // Sampling state
+  var maxN = 300;
+  var samples = [];       // array of observed values
+  var runningMeans = [];  // running mean after each sample
+  var animating = false;
+  var animTimer = null;
+  var animSpeed = 30; // ms per sample (faster for large maxN)
+
+  // ===== Pseudo-random (deterministic LCG so results are reproducible) =====
+  // lcgState resets on resetSamples; advances each draw
+  var lcgState = 12345;
+  function lcgRand() {
+    // Park-Miller LCG, full period 2^31-1
+    lcgState = (lcgState * 16807) % 2147483647;
+    return lcgState / 2147483647; // [0, 1)
+  }
+
+  // ===== Sampling functions =====
+  function sampleBinom() {
+    // Draw single binomial(nTrials, p) outcome
+    var count = 0;
+    for (var i = 0; i < nTrials; i++) {
+      if (lcgRand() < p) count++;
+    }
+    return count;
+  }
+
+  // Box-Muller: produce one standard normal using two uniform samples
+  var _hasSpare = false, _spare = 0;
+  function sampleNorm() {
+    if (_hasSpare) { _hasSpare = false; return _spare * sigma + mu; }
+    var u = 0, v = 0;
+    do { u = lcgRand(); } while (u === 0);
+    do { v = lcgRand(); } while (v === 0);
+    var mag = Math.sqrt(-2.0 * Math.log(u));
+    var z0 = mag * Math.cos(2 * Math.PI * v);
+    var z1 = mag * Math.sin(2 * Math.PI * v);
+    _spare = z1;
+    _hasSpare = true;
+    return z0 * sigma + mu;
+  }
+
+  function drawOneSample() {
+    var val = (distType === "binom") ? sampleBinom() : sampleNorm();
+    samples.push(val);
+    var sum = 0;
+    for (var i = 0; i < samples.length; i++) sum += samples[i];
+    runningMeans.push(sum / samples.length);
+    updateReadouts();
+    drawHist();
+    drawConv();
+  }
+
+  // ===== Theory =====
+  function theoryMu() {
+    if (distType === "binom") return nTrials * p;
+    return mu;
+  }
+  function theoryVar() {
+    if (distType === "binom") return nTrials * p * (1 - p);
+    return sigma * sigma;
+  }
+
+  // Binomial PMF P(X=k)
+  function binomPMF(k) {
+    // C(n, k) p^k (1-p)^(n-k)
+    return logBinomCoeff(nTrials, k) !== null
+      ? Math.exp(logBinomCoeff(nTrials, k) + k * Math.log(p) + (nTrials - k) * Math.log(1 - p))
+      : 0;
+  }
+  function logBinomCoeff(n, k) {
+    if (k < 0 || k > n) return null;
+    // log C(n,k) = log(n!) - log(k!) - log((n-k)!)
+    return logFact(n) - logFact(k) - logFact(n - k);
+  }
+  var _logFactCache = [0];
+  function logFact(n) {
+    if (_logFactCache[n] !== undefined) return _logFactCache[n];
+    var v = logFact(n - 1) + Math.log(n);
+    _logFactCache[n] = v;
+    return v;
+  }
+
+  // Normal PDF
+  function normPDF(x) {
+    var z = (x - mu) / sigma;
+    return Math.exp(-0.5 * z * z) / (sigma * Math.sqrt(2 * Math.PI));
+  }
+
+  // ===== HiDPI canvas helper =====
+  function setupCanvas(cvs) {
+    var wrap = cvs.parentElement;
+    var W = wrap.clientWidth;
+    var H = wrap.clientHeight;
+    if (W === 0 || H === 0) { W = 600; H = 300; }
+    var dpr = window.devicePixelRatio || 1;
+    if (cvs.width !== W * dpr || cvs.height !== H * dpr) {
+      cvs.width  = W * dpr;
+      cvs.height = H * dpr;
+      cvs.style.width  = W + "px";
+      cvs.style.height = H + "px";
+    }
+    var ctx = cvs.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { ctx: ctx, W: W, H: H };
+  }
+
+  // ===== Draw histogram canvas =====
+  var cvHist = document.getElementById("cvHist");
+
+  function drawHist() {
+    var s = setupCanvas(cvHist);
+    var ctx = s.ctx, W = s.W, H = s.H;
+
+    ctx.clearRect(0, 0, W, H);
+
+    // Margins
+    var ml = 52, mr = 14, mt = 28, mb = 40;
+    var pw = W - ml - mr;
+    var ph = H - mt - mb;
+    if (pw < 10 || ph < 10) return;
+
+    // Determine x domain
+    var xMin, xMax, bins, binW;
+    if (distType === "binom") {
+      xMin = 0; xMax = nTrials;
+      bins = nTrials + 1;
+      binW = 1; // each integer k is its own bar
+    } else {
+      // Normal: show mu ± 4*sigma
+      var span = 4 * sigma;
+      xMin = mu - span; xMax = mu + span;
+      bins = 40;
+      binW = (xMax - xMin) / bins;
+    }
+
+    // Build frequency counts from samples
+    var counts = [];
+    var i;
+    for (i = 0; i < bins; i++) counts.push(0);
+    var N = samples.length;
+    for (i = 0; i < N; i++) {
+      var v = samples[i];
+      var bi;
+      if (distType === "binom") {
+        bi = Math.round(v);
+        if (bi >= 0 && bi <= nTrials) counts[bi]++;
+      } else {
+        bi = Math.floor((v - xMin) / binW);
+        if (bi >= 0 && bi < bins) counts[bi]++;
+      }
+    }
+    // Normalize to frequencies (density for normal, prob for binom)
+    var freqs = [];
+    for (i = 0; i < bins; i++) {
+      freqs.push(N > 0 ? counts[i] / (N * (distType === "binom" ? 1 : binW)) : 0);
+    }
+
+    // Theory values for y-scale
+    var theoryMax = 0;
+    if (distType === "binom") {
+      for (i = 0; i <= nTrials; i++) {
+        var pv = binomPMF(i);
+        if (pv > theoryMax) theoryMax = pv;
+      }
+    } else {
+      theoryMax = normPDF(mu); // peak of normal
+    }
+
+    var obsMax = 0;
+    for (i = 0; i < freqs.length; i++) { if (freqs[i] > obsMax) obsMax = freqs[i]; }
+    var yMax = Math.max(theoryMax * 1.15, obsMax * 1.1, 0.01);
+
+    // Coordinate transforms
+    function sx(xw) { return ml + (xw - xMin) / (xMax - xMin) * pw; }
+    function sy(yw) { return mt + ph * (1 - yw / yMax); }
+    function syH(yw) { return ph * (yw / yMax); } // height in pixels
+
+    // Grid
+    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--grid").trim() || "#2a3441";
+    ctx.lineWidth = 0.5;
+    var yTicks = 5;
+    for (i = 0; i <= yTicks; i++) {
+      var yv = yMax * i / yTicks;
+      var yp = sy(yv);
+      ctx.beginPath(); ctx.moveTo(ml, yp); ctx.lineTo(W - mr, yp); ctx.stroke();
+    }
+
+    // Bars
+    ctx.fillStyle = "rgba(79, 195, 247, 0.62)";
+    ctx.strokeStyle = "rgba(79, 195, 247, 0.9)";
+    ctx.lineWidth = 1;
+    if (distType === "binom") {
+      var barW = pw / (xMax - xMin + 1) * 0.75;
+      for (i = 0; i < bins; i++) {
+        var bx = sx(i) - barW / 2;
+        var bh = syH(freqs[i]);
+        var by = sy(freqs[i]);
+        if (freqs[i] > 0) {
+          ctx.fillRect(bx, by, barW, bh);
+          ctx.strokeRect(bx, by, barW, bh);
+        }
+      }
+    } else {
+      var normBarW = pw / bins * 0.92;
+      for (i = 0; i < bins; i++) {
+        var nbx = sx(xMin + i * binW);
+        var nbh = syH(freqs[i]);
+        var nby = sy(freqs[i]);
+        if (freqs[i] > 0) {
+          ctx.fillRect(nbx, nby, normBarW, nbh);
+          ctx.strokeRect(nbx, nby, normBarW, nbh);
+        }
+      }
+    }
+
+    // Theory curve / PMF
+    ctx.strokeStyle = "#ffd166";
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([]);
+    if (distType === "binom") {
+      // Discrete PMF: draw as connected dots + vertical sticks
+      for (i = 0; i <= nTrials; i++) {
+        var pmfv = binomPMF(i);
+        var tx = sx(i);
+        var ty = sy(pmfv);
+        // Vertical line from axis
+        ctx.beginPath();
+        ctx.strokeStyle = "rgba(255, 209, 102, 0.5)";
+        ctx.lineWidth = 1;
+        ctx.moveTo(tx, sy(0));
+        ctx.lineTo(tx, ty);
+        ctx.stroke();
+        // Dot
+        ctx.fillStyle = "#ffd166";
+        ctx.beginPath();
+        ctx.arc(tx, ty, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else {
+      // Continuous PDF curve
+      ctx.beginPath();
+      ctx.strokeStyle = "#ffd166";
+      ctx.lineWidth = 2.5;
+      var steps = 200;
+      var dx2 = (xMax - xMin) / steps;
+      for (i = 0; i <= steps; i++) {
+        var nx = xMin + i * dx2;
+        var ny = normPDF(nx);
+        if (i === 0) ctx.moveTo(sx(nx), sy(ny));
+        else ctx.lineTo(sx(nx), sy(ny));
+      }
+      ctx.stroke();
+    }
+
+    // Theory mean vertical dashed line
+    var tmu = theoryMu();
+    ctx.strokeStyle = "#ef7a85";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    var muX = sx(tmu);
+    if (muX >= ml && muX <= W - mr) {
+      ctx.moveTo(muX, mt); ctx.lineTo(muX, mt + ph);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    // Sample mean vertical line (if samples exist)
+    if (N > 0) {
+      var smean = runningMeans[runningMeans.length - 1];
+      var smX = sx(smean);
+      ctx.strokeStyle = "#58d68d";
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      if (smX >= ml && smX <= W - mr) {
+        ctx.moveTo(smX, mt); ctx.lineTo(smX, mt + ph);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+    }
+
+    // Axes
+    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--axis").trim() || "#5b6b7b";
+    ctx.lineWidth = 1.2;
+    // x-axis
+    ctx.beginPath(); ctx.moveTo(ml, mt + ph); ctx.lineTo(W - mr, mt + ph); ctx.stroke();
+    // y-axis
+    ctx.beginPath(); ctx.moveTo(ml, mt); ctx.lineTo(ml, mt + ph); ctx.stroke();
+
+    // x-axis labels
+    ctx.fillStyle = "#93a1b1";
+    ctx.font = "11px Consolas, monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    if (distType === "binom") {
+      var step = Math.max(1, Math.ceil(nTrials / 10));
+      for (i = 0; i <= nTrials; i += step) {
+        ctx.fillText(String(i), sx(i), mt + ph + 5);
+      }
+    } else {
+      var xStep = niceStep((xMax - xMin) / 6);
+      var xStart = Math.ceil(xMin / xStep) * xStep;
+      for (var xv = xStart; xv <= xMax + 1e-9; xv += xStep) {
+        ctx.fillText(xv.toFixed(1), sx(xv), mt + ph + 5);
+      }
+    }
+
+    // y-axis labels
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    for (i = 0; i <= yTicks; i++) {
+      var yvl = yMax * i / yTicks;
+      ctx.fillText(yvl.toFixed(2), ml - 5, sy(yvl));
+    }
+
+    // Sample count annotation top-right
+    ctx.fillStyle = "#93a1b1";
+    ctx.textAlign = "right";
+    ctx.textBaseline = "top";
+    ctx.font = "12px Consolas, monospace";
+    var label = (lang === "zh" ? "n = " : "n = ") + N;
+    ctx.fillText(label, W - mr - 4, mt + 2);
+
+    // Waiting hint if no samples
+    if (N === 0) {
+      ctx.fillStyle = "rgba(147,161,177,0.5)";
+      ctx.font = "13px -apple-system, Segoe UI, Microsoft YaHei, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(t("canvasWaiting"), ml + pw / 2, mt + ph / 2);
+    }
+  }
+
+  // ===== Draw convergence canvas =====
+  var cvConv = document.getElementById("cvConv");
+
+  function drawConv() {
+    var s = setupCanvas(cvConv);
+    var ctx = s.ctx, W = s.W, H = s.H;
+    ctx.clearRect(0, 0, W, H);
+
+    var ml = 52, mr = 14, mt = 18, mb = 32;
+    var pw = W - ml - mr;
+    var ph = H - mt - mb;
+    if (pw < 10 || ph < 10) return;
+
+    var N = runningMeans.length;
+    var tmu = theoryMu();
+    var tsd = Math.sqrt(theoryVar());
+
+    // y domain: center on mu, range ± 2*tsd or actual spread
+    var yCenter = tmu;
+    var ySpread = Math.max(tsd * 2.5, 0.5);
+    if (N > 0) {
+      var mMin = runningMeans[0], mMax = runningMeans[0];
+      for (var i = 0; i < N; i++) {
+        if (runningMeans[i] < mMin) mMin = runningMeans[i];
+        if (runningMeans[i] > mMax) mMax = runningMeans[i];
+      }
+      var dataSpread = Math.max(Math.abs(mMin - tmu), Math.abs(mMax - tmu));
+      ySpread = Math.max(tsd * 2, dataSpread * 1.2, 0.5);
+    }
+    var yMin2 = yCenter - ySpread;
+    var yMax2 = yCenter + ySpread;
+    var xDom = Math.max(maxN, N);
+
+    function sx2(xw) { return ml + xw / xDom * pw; }
+    function sy2(yw) { return mt + ph * (1 - (yw - yMin2) / (yMax2 - yMin2)); }
+
+    // Grid lines
+    ctx.strokeStyle = "#2a3441";
+    ctx.lineWidth = 0.5;
+    var yTicks = 4;
+    for (i = 0; i <= yTicks; i++) {
+      var yg = yMin2 + (yMax2 - yMin2) * i / yTicks;
+      var ygp = sy2(yg);
+      ctx.beginPath(); ctx.moveTo(ml, ygp); ctx.lineTo(W - mr, ygp); ctx.stroke();
+    }
+
+    // Axes
+    ctx.strokeStyle = "#5b6b7b";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(ml, mt + ph); ctx.lineTo(W - mr, mt + ph); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ml, mt); ctx.lineTo(ml, mt + ph); ctx.stroke();
+
+    // Theory mean line (red dashed)
+    var tmuY = sy2(tmu);
+    if (tmuY >= mt && tmuY <= mt + ph) {
+      ctx.strokeStyle = "#ef7a85";
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath(); ctx.moveTo(ml, tmuY); ctx.lineTo(W - mr, tmuY); ctx.stroke();
+      ctx.setLineDash([]);
+      // label
+      ctx.fillStyle = "#ef7a85";
+      ctx.font = "10px Consolas, monospace";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "bottom";
+      ctx.fillText("E(X)=" + fmt(tmu), ml + 2, tmuY - 2);
+    }
+
+    // Running mean line (green)
+    if (N > 0) {
+      ctx.strokeStyle = "#58d68d";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      for (i = 0; i < N; i++) {
+        var rx = sx2(i + 1);
+        var ry = sy2(runningMeans[i]);
+        if (i === 0) ctx.moveTo(rx, ry); else ctx.lineTo(rx, ry);
+      }
+      ctx.stroke();
+
+      // Current mean dot
+      var lastX = sx2(N);
+      var lastY = sy2(runningMeans[N - 1]);
+      ctx.fillStyle = "#58d68d";
+      ctx.beginPath();
+      ctx.arc(lastX, lastY, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Axis labels
+    ctx.fillStyle = "#93a1b1";
+    ctx.font = "11px Consolas, monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    // x-axis ticks
+    var xStep2 = niceStep(xDom / 5);
+    for (var xv2 = 0; xv2 <= xDom; xv2 += xStep2) {
+      ctx.fillText(String(xv2), sx2(xv2), mt + ph + 3);
+    }
+    // y-axis ticks
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    for (i = 0; i <= yTicks; i++) {
+      var ytv = yMin2 + (yMax2 - yMin2) * i / yTicks;
+      ctx.fillText(fmt(ytv), ml - 5, sy2(ytv));
+    }
+
+    // Title
+    ctx.fillStyle = "#93a1b1";
+    ctx.font = "11px -apple-system, Segoe UI, Microsoft YaHei, sans-serif";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillText(t("lblConv"), ml + 2, mt + 2);
+  }
+
+  // ===== Helpers =====
+  function fmt(v, d) {
+    d = d === undefined ? 3 : d;
+    return parseFloat(v.toFixed(d)).toString();
+  }
+  function niceStep(rough) {
+    var m = Math.pow(10, Math.floor(Math.log10(rough)));
+    var f = rough / m;
+    if (f < 1.5) return m;
+    if (f < 3.5) return 2 * m;
+    if (f < 7.5) return 5 * m;
+    return 10 * m;
+  }
+
+  function updateReadouts() {
+    var tmu = theoryMu();
+    var tvar = theoryVar();
+    document.getElementById("roMu").textContent    = fmt(tmu);
+    document.getElementById("roSigma").textContent = fmt(tvar);
+    document.getElementById("roSampleN").textContent = samples.length;
+    if (runningMeans.length > 0) {
+      document.getElementById("roSampleMean").textContent = fmt(runningMeans[runningMeans.length - 1]);
+    } else {
+      document.getElementById("roSampleMean").textContent = "—";
+    }
+  }
+
+  // ===== Animation =====
+  window.toggleAnimate = function () {
+    if (animating) {
+      pauseAnim();
+    } else {
+      startAnim();
+    }
+  };
+
+  function startAnim() {
+    if (samples.length >= maxN) return;
+    animating = true;
+    document.getElementById("btnAnimate").textContent = t("btnPause");
+    document.getElementById("btnAnimate").classList.add("running");
+    // Adaptive speed: faster for large N
+    animSpeed = maxN > 500 ? 8 : maxN > 200 ? 18 : 30;
+    scheduleNext();
+  }
+
+  function pauseAnim() {
+    animating = false;
+    clearTimeout(animTimer);
+    document.getElementById("btnAnimate").textContent = t("btnStart");
+    document.getElementById("btnAnimate").classList.remove("running");
+  }
+
+  function scheduleNext() {
+    if (!animating) return;
+    if (samples.length >= maxN) {
+      pauseAnim();
+      return;
+    }
+    // Draw multiple samples per frame when fast
+    var batch = animSpeed < 15 ? 5 : 1;
+    for (var i = 0; i < batch && samples.length < maxN; i++) {
+      drawOneSample();
+    }
+    animTimer = setTimeout(scheduleNext, animSpeed);
+  }
+
+  window.resetSamples = function () {
+    pauseAnim();
+    samples = [];
+    runningMeans = [];
+    lcgState = 12345;
+    _hasSpare = false;
+    updateReadouts();
+    drawHist();
+    drawConv();
+  };
+
+  // ===== Distribution switch =====
+  window.switchDist = function (d) {
+    distType = d;
+    document.getElementById("btnBinom").classList.toggle("active", d === "binom");
+    document.getElementById("btnNorm").classList.toggle("active", d === "norm");
+    document.getElementById("formulaBinom").style.display = d === "binom" ? "" : "none";
+    document.getElementById("formulaNorm").style.display  = d === "norm"  ? "" : "none";
+
+    // Show/hide binom-only / norm-only sliders
+    var binomRows = document.querySelectorAll(".binom-only");
+    var normRows  = document.querySelectorAll(".norm-only");
+    binomRows.forEach(function (el) {
+      el.classList.toggle("hidden", d !== "binom");
+    });
+    normRows.forEach(function (el) {
+      el.classList.toggle("hidden", d !== "norm");
+    });
+
+    resetSamples();
+    updateReadouts();
+    drawHist();
+    drawConv();
+  };
+
+  // ===== Presets =====
+  var PRESETS = {
+    fair:   { dist: "binom", nTrials: 10, p: 0.5,  maxN: 300 },
+    biased: { dist: "binom", nTrials: 10, p: 0.25, maxN: 300 },
+    norm:   { dist: "norm",  mu: 0,  sigma: 1,     maxN: 300 },
+    large:  { dist: "binom", nTrials: 20, p: 0.4,  maxN: 1000 }
+  };
+
+  window.applyPreset = function (name) {
+    pauseAnim();
+    var pr = PRESETS[name];
+    if (!pr) return;
+
+    // Clear active on all presets
+    ["presetFair","presetBiased","presetNorm","presetLarge"].forEach(function (id) {
+      document.getElementById(id).classList.remove("active");
+    });
+    document.getElementById("preset" + name.charAt(0).toUpperCase() + name.slice(1)).classList.add("active");
+
+    if (pr.dist === "binom") {
+      nTrials = pr.nTrials;
+      p = pr.p;
+      document.getElementById("sTrials").value = nTrials;
+      document.getElementById("sP").value = p;
+      document.getElementById("numTrials").textContent = nTrials;
+      document.getElementById("numP").textContent = p.toFixed(2);
+      switchDist("binom");
+    } else {
+      mu = pr.mu;
+      sigma = pr.sigma;
+      document.getElementById("sMu").value = mu;
+      document.getElementById("sSigma").value = sigma;
+      document.getElementById("numMu").textContent = mu.toFixed(2);
+      document.getElementById("numSigma").textContent = sigma.toFixed(2);
+      switchDist("norm");
+    }
+    maxN = pr.maxN;
+    document.getElementById("sMaxN").value = maxN;
+    document.getElementById("numMaxN").textContent = maxN;
+
+    resetSamples();
+  };
+
+  // ===== Sliders =====
+  document.getElementById("sTrials").addEventListener("input", function () {
+    nTrials = parseInt(this.value);
+    document.getElementById("numTrials").textContent = nTrials;
+    clearPresetActive();
+    resetSamples();
+  });
+  document.getElementById("sP").addEventListener("input", function () {
+    p = parseFloat(this.value);
+    document.getElementById("numP").textContent = p.toFixed(2);
+    clearPresetActive();
+    resetSamples();
+  });
+  document.getElementById("sMu").addEventListener("input", function () {
+    mu = parseFloat(this.value);
+    document.getElementById("numMu").textContent = mu.toFixed(2);
+    clearPresetActive();
+    resetSamples();
+  });
+  document.getElementById("sSigma").addEventListener("input", function () {
+    sigma = parseFloat(this.value);
+    document.getElementById("numSigma").textContent = sigma.toFixed(2);
+    clearPresetActive();
+    resetSamples();
+  });
+  document.getElementById("sMaxN").addEventListener("input", function () {
+    maxN = parseInt(this.value);
+    document.getElementById("numMaxN").textContent = maxN;
+    if (samples.length > maxN) {
+      samples = samples.slice(0, maxN);
+      runningMeans = runningMeans.slice(0, maxN);
+      updateReadouts();
+    }
+    drawHist();
+    drawConv();
+  });
+
+  function clearPresetActive() {
+    ["presetFair","presetBiased","presetNorm","presetLarge"].forEach(function (id) {
+      document.getElementById(id).classList.remove("active");
+    });
+  }
+
+  // ===== Resize =====
+  var resizeTimer = null;
+  window.addEventListener("resize", function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () {
+      drawHist();
+      drawConv();
+    }, 80);
+  });
+
+  // ===== Init =====
+  applyLang();
+  applyPreset("fair");
+  drawHist();
+  drawConv();
+
+})();
+</script>
+</body>
+</html>

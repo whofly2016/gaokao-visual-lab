@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>立体几何空间向量实验室 · 线面角 / 截面 / 法向量</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --panel: #1a212b;
+    --panel2: #232c38;
+    --ink: #e6edf3;
+    --muted: #93a1b1;
+    --accent: #4fc3f7;
+    --edge: #5b8fa8;         /* 长方体棱线 */
+    --edge-hidden: #2a4055;  /* 虚棱(看不见的边) */
+    --face: rgba(79,195,247,0.04); /* 面填充 */
+    --section: #ffd166;      /* 截面多边形 */
+    --section-fill: rgba(255,209,102,0.13);
+    --normal: #c792ea;       /* 法向量箭头 */
+    --line3d: #58d68d;       /* 空间直线 */
+    --angle: #ef7a85;        /* 线面角弧 */
+    --foot: #ef7a85;         /* 垂足点 */
+    --grid: #2a3441;
+    --axis: #5b6b7b;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    height: 100%;
+  }
+  .app { display: flex; flex-direction: row; min-height: 100vh; }
+  .stage {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    min-width: 0;
+  }
+  .stage-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+  .stage-header-text { flex: 1 1 auto; min-width: 0; }
+  .stage h1 { font-size: 18px; margin: 0 0 4px 0; font-weight: 600; }
+  .stage .sub { color: var(--muted); font-size: 13px; margin: 0 0 10px 0; }
+  .canvas-wrap {
+    position: relative;
+    flex: 1 1 auto;
+    background: #0b0f14;
+    border: 1px solid var(--grid);
+    border-radius: 10px;
+    overflow: hidden;
+    min-height: 380px;
+  }
+  canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+  canvas.dragging { cursor: grabbing; }
+
+  /* 语言切换 */
+  .lang-switch {
+    flex: 0 0 auto;
+    display: flex; align-items: center; gap: 0;
+    font-size: 13px; white-space: nowrap; margin-top: 2px;
+  }
+  .lang-switch button {
+    background: none; border: 1px solid var(--grid);
+    color: var(--muted); padding: 4px 10px; font-size: 12px;
+    cursor: pointer;
+    transition: color .15s, border-color .15s, background .15s;
+    border-radius: 0;
+  }
+  .lang-switch button:first-child { border-radius: 6px 0 0 6px; }
+  .lang-switch button:last-child  { border-radius: 0 6px 6px 0; border-left: none; }
+  .lang-switch button.active { color: var(--accent); border-color: var(--accent); background: rgba(79,195,247,.08); }
+  .lang-switch button:hover:not(.active) { color: var(--ink); border-color: var(--muted); }
+
+  .panel {
+    flex: 0 0 348px;
+    background: var(--panel);
+    border-left: 1px solid var(--grid);
+    padding: 18px; overflow-y: auto; max-height: 100vh;
+  }
+  .panel h2 {
+    font-size: 14px; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted); margin: 18px 0 8px;
+    border-bottom: 1px solid var(--grid); padding-bottom: 6px;
+  }
+  .panel h2:first-child { margin-top: 0; }
+
+  .expr {
+    background: var(--panel2); border-radius: 8px;
+    padding: 10px 12px;
+    font-family: "Cambria Math", "Times New Roman", serif;
+    font-size: 15.5px; margin: 6px 0; line-height: 1.6; word-break: break-word;
+  }
+  math { font-size: 1.06em; vertical-align: -0.1em; }
+  .expr math { display: inline-block; }
+  var { font-family: "Cambria Math", "Times New Roman", serif; font-style: italic; }
+
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .slider-row { margin: 10px 0; }
+  .slider-row .head {
+    display: flex; justify-content: space-between;
+    font-size: 13px; margin-bottom: 4px;
+  }
+  .slider-row .head .name { color: var(--ink); font-weight: 600; }
+  .slider-row .head .num {
+    font-family: "Consolas", monospace; color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .readout {
+    background: var(--panel2); border-radius: 8px;
+    padding: 10px 12px; font-family: "Consolas", monospace;
+    font-size: 13px; line-height: 1.75;
+  }
+  .readout .k { color: var(--muted); }
+  .readout .v { float: right; font-variant-numeric: tabular-nums; color: var(--ink); }
+  .readout::after { content: ""; display: table; clear: both; }
+
+  .swatch { display:inline-block; width:11px; height:11px; border-radius:3px; vertical-align:middle; margin-right:5px; }
+
+  .note { font-size: 13px; line-height: 1.65; color: var(--muted); }
+  .note b { color: var(--ink); }
+  .legend { font-size: 12.5px; line-height: 2.0; color: var(--muted); }
+
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  button {
+    background: var(--panel2); color: var(--ink);
+    border: 1px solid var(--grid); border-radius: 7px;
+    padding: 7px 11px; font-size: 13px;
+    cursor: pointer; transition: background .15s, border-color .15s;
+  }
+  button:hover { background: #2c3848; border-color: var(--accent); }
+  button.active { border-color: var(--accent); color: var(--accent); }
+
+  .compliance {
+    margin-top: 16px; font-size: 11.5px; color: #6b7886;
+    line-height: 1.6; border-top: 1px dashed var(--grid); padding-top: 10px;
+  }
+
+  @media (max-width: 900px) {
+    .app { flex-direction: column; }
+    .panel { flex-basis: auto; border-left: none; border-top: 1px solid var(--grid); max-height: none; }
+    .canvas-wrap { min-height: 320px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ====== 左侧画布区 ====== -->
+  <div class="stage">
+    <div class="stage-header">
+      <div class="stage-header-text">
+        <h1 id="i18n-title">立体几何空间向量实验室 — 线面角 · 截面 · 法向量</h1>
+        <p class="sub" id="i18n-sub">拖动旋转视角以观察三维结构；用滑块调整截面位置；切换预设探索不同截面形态。</p>
+      </div>
+      <div class="lang-switch">
+        <button id="btnZh" class="active" onclick="setLang('zh')">中文</button>
+        <button id="btnEn" onclick="setLang('en')">EN</button>
+      </div>
+    </div>
+    <div class="canvas-wrap">
+      <canvas id="cv"></canvas>
+    </div>
+  </div>
+
+  <!-- ====== 右侧控制面板 ====== -->
+  <aside class="panel">
+
+    <h2 id="i18n-h-formula">核心公式</h2>
+    <div class="expr">
+      <!-- 线面角定义:sin θ = |n·a| / (|n||a|) -->
+      <span id="i18n-expr-label">线面角</span>
+      <math xmlns="http://www.w3.org/1998/Math/MathML">
+        <mrow>
+          <mi>sin</mi><mo>&#x2061;</mo><mi>&#x3B8;</mi>
+          <mo>=</mo>
+          <mfrac>
+            <mrow><mo>|</mo><mi mathvariant="bold">n</mi><mo>&#x22C5;</mo><mi mathvariant="bold">a</mi><mo>|</mo></mrow>
+            <mrow><mo>|</mo><mi mathvariant="bold">n</mi><mo>|</mo><mo>&#x22C5;</mo><mo>|</mo><mi mathvariant="bold">a</mi><mo>|</mo></mrow>
+          </mfrac>
+        </mrow>
+      </math>
+    </div>
+    <div class="expr">
+      <!-- 法向量与面内两向量正交: n·u=0, n·v=0 -->
+      <span id="i18n-expr-normal-label">法向量条件</span>
+      <math xmlns="http://www.w3.org/1998/Math/MathML">
+        <mrow>
+          <mi mathvariant="bold">n</mi><mo>&#x22C5;</mo><mi mathvariant="bold">u</mi><mo>=</mo><mn>0</mn>
+          <mo>,</mo><mspace width="0.5em"/>
+          <mi mathvariant="bold">n</mi><mo>&#x22C5;</mo><mi mathvariant="bold">v</mi><mo>=</mo><mn>0</mn>
+        </mrow>
+      </math>
+    </div>
+
+    <h2 id="i18n-h-readout">实时数值</h2>
+    <div class="readout" id="readoutBox">
+      <div>
+        <span class="k" id="i18n-ro-angle-lbl">线面角 θ</span>
+        <span class="v" id="ro-angle">—</span>
+      </div>
+      <div>
+        <span class="k" id="i18n-ro-n-lbl">法向量 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi mathvariant="bold">n</mi></math></span>
+        <span class="v" id="ro-normal">—</span>
+      </div>
+      <div>
+        <span class="k" id="i18n-ro-a-lbl">直线方向 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi mathvariant="bold">a</mi></math></span>
+        <span class="v" id="ro-dir">—</span>
+      </div>
+      <div>
+        <span class="k" id="i18n-ro-dot-lbl"><math xmlns="http://www.w3.org/1998/Math/MathML"><mi mathvariant="bold">n</mi><mo>&#x22C5;</mo><mi mathvariant="bold">a</mi></math></span>
+        <span class="v" id="ro-dot">—</span>
+      </div>
+      <div>
+        <span class="k" id="i18n-ro-section-lbl">截面形状</span>
+        <span class="v" id="ro-section">—</span>
+      </div>
+    </div>
+
+    <h2 id="i18n-h-view">视角与截面</h2>
+    <div class="slider-row">
+      <div class="head">
+        <span class="name" id="i18n-sl-azimuth">方位角 φ (°)</span>
+        <span class="num" id="num-azimuth">30</span>
+      </div>
+      <input type="range" id="sl-azimuth" min="0" max="360" step="1" value="30">
+    </div>
+    <div class="slider-row">
+      <div class="head">
+        <span class="name" id="i18n-sl-elevation">仰角 ψ (°)</span>
+        <span class="num" id="num-elevation">25</span>
+      </div>
+      <input type="range" id="sl-elevation" min="5" max="80" step="1" value="25">
+    </div>
+    <div class="slider-row">
+      <div class="head">
+        <span class="name" id="i18n-sl-section">截面位置 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>t</mi></math></span>
+        <span class="num" id="num-section">0.50</span>
+      </div>
+      <input type="range" id="sl-section" min="0.05" max="0.95" step="0.01" value="0.50">
+    </div>
+    <div class="slider-row">
+      <div class="head">
+        <span class="name" id="i18n-sl-line">直线方向角 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>&#x3B1;</mi></math> (°)</span>
+        <span class="num" id="num-line">45</span>
+      </div>
+      <input type="range" id="sl-line" min="0" max="90" step="1" value="45">
+    </div>
+
+    <h2 id="i18n-h-shape">几何体参数</h2>
+    <div class="slider-row">
+      <div class="head">
+        <span class="name" id="i18n-sl-lx">长 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>a</mi></math></span>
+        <span class="num" id="num-lx">2.0</span>
+      </div>
+      <input type="range" id="sl-lx" min="1" max="4" step="0.1" value="2">
+    </div>
+    <div class="slider-row">
+      <div class="head">
+        <span class="name" id="i18n-sl-ly">宽 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>b</mi></math></span>
+        <span class="num" id="num-ly">2.0</span>
+      </div>
+      <input type="range" id="sl-ly" min="1" max="4" step="0.1" value="2">
+    </div>
+    <div class="slider-row">
+      <div class="head">
+        <span class="name" id="i18n-sl-lz">高 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>c</mi></math></span>
+        <span class="num" id="num-lz">2.0</span>
+      </div>
+      <input type="range" id="sl-lz" min="1" max="4" step="0.1" value="2">
+    </div>
+
+    <h2 id="i18n-h-preset">预设</h2>
+    <div class="btn-row">
+      <button id="preset-cube" class="active" data-i18n="preset-cube">正方体</button>
+      <button id="preset-rect" data-i18n="preset-rect">长方体</button>
+      <button id="preset-diag" data-i18n="preset-diag">对角截面</button>
+      <button id="preset-demo" data-i18n="preset-demo">线面角演示</button>
+    </div>
+
+    <h2 id="i18n-h-legend">图例</h2>
+    <div class="legend" id="legendBox">
+      <div><span class="swatch" style="background:var(--edge)"></span><span id="lg-edge">实线:长方体可见棱</span></div>
+      <div><span class="swatch" style="background:var(--edge-hidden)"></span><span id="lg-hidden">虚线:被遮挡的棱</span></div>
+      <div><span class="swatch" style="background:var(--section)"></span><span id="lg-section">黄色多边形:截面</span></div>
+      <div><span class="swatch" style="background:var(--normal)"></span><span id="lg-normal">紫色箭头:截面法向量 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi mathvariant="bold">n</mi></math></span></div>
+      <div><span class="swatch" style="background:var(--line3d)"></span><span id="lg-line">绿色直线:空间直线</span></div>
+      <div><span class="swatch" style="background:var(--angle)"></span><span id="lg-angle">红弧:线面角 θ</span></div>
+    </div>
+
+    <h2 id="i18n-h-explain">线面角告诉我们什么</h2>
+    <p class="note" id="i18n-explain">
+      <b>线面角</b>是直线与平面所成的角，等于直线与它在该平面上的<b>射影</b>所成的角（取锐角）。<br>
+      · 用法向量 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi mathvariant="bold">n</mi></math> 和直线方向 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi mathvariant="bold">a</mi></math>，可一步得到线面角：
+      <math xmlns="http://www.w3.org/1998/Math/MathML">
+        <mrow><mi>sin</mi><mo>&#x2061;</mo><mi>&#x3B8;</mi><mo>=</mo>
+          <mfrac>
+            <mrow><mo>|</mo><mi mathvariant="bold">n</mi><mo>&#x22C5;</mo><mi mathvariant="bold">a</mi><mo>|</mo></mrow>
+            <mrow><mo>|</mo><mi mathvariant="bold">n</mi><mo>|</mo><mo>&#x22C5;</mo><mo>|</mo><mi mathvariant="bold">a</mi><mo>|</mo></mrow>
+          </mfrac>
+        </mrow>
+      </math>。<br>
+      · <b>截面</b>法向量垂直于截面内所有向量，可由截面内两不共线向量叉积求得。<br>
+      · 法向量方法将几何问题转化为向量运算，是高中立体几何的核心工具。
+    </p>
+
+    <div class="compliance" id="i18n-compliance">
+      合规声明：本 demo 仅使用<b>自绘抽象几何体（参数化长方体）和向量模型</b>做概念可视化，未复制任何高考原题文字、原卷图片或答案图，不是题目搬运。
+    </div>
+  </aside>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ========== i18n 字典 ==========
+  var I18N = {
+    zh: {
+      "doc-title":   "立体几何空间向量实验室 · 线面角 / 截面 / 法向量",
+      "title":       "立体几何空间向量实验室 — 线面角 · 截面 · 法向量",
+      "sub":         "拖动旋转视角以观察三维结构；用滑块调整截面位置；切换预设探索不同截面形态。",
+      "h-formula":   "核心公式",
+      "expr-label":  "线面角",
+      "expr-normal-label": "法向量条件",
+      "h-readout":   "实时数值",
+      "ro-angle":    "线面角 θ",
+      "ro-n":        "法向量 n",
+      "ro-a":        "直线方向 a",
+      "ro-dot":      "n·a",
+      "ro-section":  "截面形状",
+      "h-view":      "视角与截面",
+      "sl-azimuth":  "方位角 φ (°)",
+      "sl-elevation":"仰角 ψ (°)",
+      "sl-section":  "截面位置 t",
+      "sl-line":     "直线方向角 α (°)",
+      "h-shape":     "几何体参数",
+      "sl-lx":       "长 a",
+      "sl-ly":       "宽 b",
+      "sl-lz":       "高 c",
+      "h-preset":    "预设",
+      "preset-cube": "正方体",
+      "preset-rect": "长方体",
+      "preset-diag": "对角截面",
+      "preset-demo": "线面角演示",
+      "h-legend":    "图例",
+      "lg-edge":     "实线：长方体可见棱",
+      "lg-hidden":   "虚线：被遮挡的棱",
+      "lg-section":  "黄色多边形：截面",
+      "lg-normal":   "紫色箭头：截面法向量 n",
+      "lg-line":     "绿色直线：空间直线",
+      "lg-angle":    "红弧：线面角 θ",
+      "h-explain":   "线面角告诉我们什么",
+      "explain":     "<b>线面角</b>是直线与平面所成的角，等于直线与它在该平面上的<b>射影</b>所成的角（取锐角）。<br>· 用法向量 <math xmlns='http://www.w3.org/1998/Math/MathML'><mi mathvariant='bold'>n</mi></math> 和直线方向 <math xmlns='http://www.w3.org/1998/Math/MathML'><mi mathvariant='bold'>a</mi></math>，可一步得到线面角：<math xmlns='http://www.w3.org/1998/Math/MathML'><mrow><mi>sin</mi><mo>&#x2061;</mo><mi>&#x3B8;</mi><mo>=</mo><mfrac><mrow><mo>|</mo><mi mathvariant='bold'>n</mi><mo>&#x22C5;</mo><mi mathvariant='bold'>a</mi><mo>|</mo></mrow><mrow><mo>|</mo><mi mathvariant='bold'>n</mi><mo>|</mo><mo>&#x22C5;</mo><mo>|</mo><mi mathvariant='bold'>a</mi><mo>|</mo></mrow></mfrac></mrow></math>。<br>· <b>截面</b>法向量垂直于截面内所有向量，可由截面内两不共线向量叉积求得。<br>· 法向量方法将几何问题转化为向量运算，是高中立体几何的核心工具。",
+      "compliance":  "合规声明：本 demo 仅使用<b>自绘抽象几何体（参数化长方体）和向量模型</b>做概念可视化，未复制任何高考原题文字、原卷图片或答案图，不是题目搬运。",
+      // canvas 标注
+      "canvas-O": "O",
+      "canvas-A": "A",
+      "canvas-B": "B",
+      "canvas-C": "C (顶)",
+      "canvas-n": "n",
+      "canvas-line": "直线 l",
+      "canvas-section": "截面",
+      "canvas-angle": "θ",
+      "shape-tri": "三角形",
+      "shape-quad": "四边形",
+      "shape-pent": "五边形",
+      "shape-hex": "六边形",
+      "shape-unknown": "多边形"
+    },
+    en: {
+      "doc-title":   "Solid Geometry & Space Vectors Lab · Line-Plane Angle / Cross-Section / Normal Vector",
+      "title":       "Solid Geometry & Space Vectors Lab — Line-Plane Angle · Cross-Section · Normal Vector",
+      "sub":         "Drag to rotate the view; use sliders to adjust the cutting plane position; switch presets to explore different cross-section shapes.",
+      "h-formula":   "Key Formulae",
+      "expr-label":  "Line-plane angle",
+      "expr-normal-label": "Normal vector condition",
+      "h-readout":   "Live Values",
+      "ro-angle":    "Line-plane angle θ",
+      "ro-n":        "Normal vector n",
+      "ro-a":        "Line direction a",
+      "ro-dot":      "n · a",
+      "ro-section":  "Cross-section shape",
+      "h-view":      "View & Cross-Section",
+      "sl-azimuth":  "Azimuth φ (°)",
+      "sl-elevation":"Elevation ψ (°)",
+      "sl-section":  "Section position t",
+      "sl-line":     "Line angle α (°)",
+      "h-shape":     "Box Dimensions",
+      "sl-lx":       "Length a",
+      "sl-ly":       "Width b",
+      "sl-lz":       "Height c",
+      "h-preset":    "Presets",
+      "preset-cube": "Cube",
+      "preset-rect": "Cuboid",
+      "preset-diag": "Diagonal section",
+      "preset-demo": "Line-plane demo",
+      "h-legend":    "Legend",
+      "lg-edge":     "Solid lines: visible edges of cuboid",
+      "lg-hidden":   "Dashed lines: hidden edges",
+      "lg-section":  "Yellow polygon: cross-section",
+      "lg-normal":   "Purple arrow: normal vector n of section",
+      "lg-line":     "Green line: space line l",
+      "lg-angle":    "Red arc: line-plane angle θ",
+      "h-explain":   "What the Line-Plane Angle Tells Us",
+      "explain":     "The <b>line-plane angle</b> is the acute angle between a line and a plane — equal to the angle between the line and its <b>orthogonal projection</b> onto the plane.<br>· Using the plane's normal vector <math xmlns='http://www.w3.org/1998/Math/MathML'><mi mathvariant='bold'>n</mi></math> and the line's direction <math xmlns='http://www.w3.org/1998/Math/MathML'><mi mathvariant='bold'>a</mi></math>, the formula is: <math xmlns='http://www.w3.org/1998/Math/MathML'><mrow><mi>sin</mi><mo>&#x2061;</mo><mi>&#x3B8;</mi><mo>=</mo><mfrac><mrow><mo>|</mo><mi mathvariant='bold'>n</mi><mo>&#x22C5;</mo><mi mathvariant='bold'>a</mi><mo>|</mo></mrow><mrow><mo>|</mo><mi mathvariant='bold'>n</mi><mo>|</mo><mo>&#x22C5;</mo><mo>|</mo><mi mathvariant='bold'>a</mi><mo>|</mo></mrow></mfrac></mrow></math>.<br>· The <b>cross-section</b> normal is perpendicular to every vector in the plane; it can be found by the cross product of two non-parallel in-plane vectors.<br>· The normal-vector method converts solid geometry into vector algebra — the core tool of high-school 3-D geometry.",
+      "compliance":  "Compliance notice: this demo uses only <b>abstract self-drawn geometry (parametric cuboid) and vector models</b> for conceptual visualization. No original exam text, figure, or answer has been reproduced.",
+      // canvas labels
+      "canvas-O": "O",
+      "canvas-A": "A",
+      "canvas-B": "B",
+      "canvas-C": "C (top)",
+      "canvas-n": "n",
+      "canvas-line": "line l",
+      "canvas-section": "section",
+      "canvas-angle": "θ",
+      "shape-tri": "Triangle",
+      "shape-quad": "Quadrilateral",
+      "shape-pent": "Pentagon",
+      "shape-hex": "Hexagon",
+      "shape-unknown": "Polygon"
+    }
+  };
+
+  // ========== 当前语言 ==========
+  var currentLang = "zh";
+
+  window.setLang = function (lang) {
+    if (lang !== "zh" && lang !== "en") return;
+    currentLang = lang;
+    document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
+    document.getElementById("btnZh").classList.toggle("active", lang === "zh");
+    document.getElementById("btnEn").classList.toggle("active", lang === "en");
+    applyLang();
+    draw();
+  };
+
+  function t(key) { return I18N[currentLang][key]; }
+
+  function setText(id, key, html) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (html) el.innerHTML = t(key); else el.textContent = t(key);
+  }
+
+  function applyLang() {
+    var L = I18N[currentLang];
+    document.title = L["doc-title"];
+    setText("i18n-title",         "title");
+    setText("i18n-sub",           "sub");
+    setText("i18n-h-formula",     "h-formula");
+    setText("i18n-expr-label",    "expr-label");
+    setText("i18n-expr-normal-label", "expr-normal-label");
+    setText("i18n-h-readout",     "h-readout");
+    setText("i18n-ro-angle-lbl",  "ro-angle");
+    setText("i18n-ro-n-lbl",      "ro-n");
+    setText("i18n-ro-a-lbl",      "ro-a");
+    setText("i18n-ro-dot-lbl",    "ro-dot");
+    setText("i18n-ro-section-lbl","ro-section");
+    setText("i18n-h-view",        "h-view");
+    setText("i18n-sl-azimuth",    "sl-azimuth");
+    setText("i18n-sl-elevation",  "sl-elevation");
+    setText("i18n-sl-line",       "sl-line");
+    setText("i18n-h-shape",       "h-shape");
+    setText("i18n-h-preset",      "h-preset");
+    setText("i18n-h-legend",      "h-legend");
+    setText("lg-edge",            "lg-edge");
+    setText("lg-hidden",          "lg-hidden");
+    setText("lg-section",         "lg-section");
+    setText("lg-normal",          "lg-normal");
+    setText("lg-line",            "lg-line");
+    setText("lg-angle",           "lg-angle");
+    setText("i18n-h-explain",     "h-explain");
+    setText("i18n-explain",       "explain", true);
+    setText("i18n-compliance",    "compliance", true);
+
+    // preset buttons
+    ["preset-cube","preset-rect","preset-diag","preset-demo"].forEach(function(k) {
+      var el = document.getElementById(k);
+      if (el) el.textContent = L[k];
+    });
+    // slider labels with math nodes — update only text prefix
+    updateSliderLabel("i18n-sl-section", "sl-section");
+    updateSliderLabel("i18n-sl-lx", "sl-lx");
+    updateSliderLabel("i18n-sl-ly", "sl-ly");
+    updateSliderLabel("i18n-sl-lz", "sl-lz");
+  }
+
+  function updateSliderLabel(elId, key) {
+    var el = document.getElementById(elId);
+    if (!el) return;
+    // keep math child nodes, replace only first text node
+    var txt = I18N[currentLang][key];
+    var first = el.firstChild;
+    if (first && first.nodeType === 3) first.nodeValue = txt;
+    else el.insertBefore(document.createTextNode(txt), el.firstChild);
+  }
+
+  // ========== 状态 ==========
+  var BOX = { lx: 2, ly: 2, lz: 2 };    // 长方体尺寸(自绘抽象参数)
+  var CAM = { az: 30, el: 25 };           // 方位角°/ 仰角°
+  var SEC = { t: 0.50 };                  // 截面位置参数 0..1 (水平截面 z = t*lz)
+  var LINE = { alpha: 45 };               // 直线在 xz 平面内的方向角 (与 x 轴的夹角°)
+  // 截面模式: "horiz" 水平截面 | "diag" 对角截面 | "slant" 斜截面
+  var sectionMode = "horiz";
+
+  var activePreset = "preset-cube";
+
+  var canvas  = document.getElementById("cv");
+  var ctx     = canvas.getContext("2d");
+  var DPR     = Math.max(1, window.devicePixelRatio || 1);
+  var W = 0, H = 0;
+
+  // ========== 向量运算 ==========
+  function vec3(x,y,z){ return {x:x,y:y,z:z}; }
+  function vadd(a,b){ return vec3(a.x+b.x, a.y+b.y, a.z+b.z); }
+  function vsub(a,b){ return vec3(a.x-b.x, a.y-b.y, a.z-b.z); }
+  function vscale(a,s){ return vec3(a.x*s, a.y*s, a.z*s); }
+  function vdot(a,b){ return a.x*b.x + a.y*b.y + a.z*b.z; }
+  function vcross(a,b){
+    return vec3(
+      a.y*b.z - a.z*b.y,
+      a.z*b.x - a.x*b.z,
+      a.x*b.y - a.y*b.x
+    );
+  }
+  function vlen(a){ return Math.sqrt(vdot(a,a)); }
+  function vnorm(a){ var l=vlen(a)||1; return vscale(a,1/l); }
+
+  function rad(d){ return d*Math.PI/180; }
+  function deg(r){ return r*180/Math.PI; }
+  function fmt2(v){ return v.toFixed(2); }
+  function fmt1(v){ return v.toFixed(1); }
+
+  // ========== 伪 3D 透视投影 ==========
+  // 使用旋转矩阵:绕 Y 轴(方位角)再绕 X 轴(仰角)
+  // 投影: 只取旋转后的 x(屏幕右) 和 z(屏幕上,实际是旋转后的 y')
+  var projCache = { az:null, el:null, M:null };
+
+  function buildMatrix() {
+    if (projCache.az === CAM.az && projCache.el === CAM.el) return;
+    var az = rad(CAM.az), el = rad(CAM.el);
+    var sa=Math.sin(az), ca=Math.cos(az);
+    var se=Math.sin(el), ce=Math.cos(el);
+    // 世界坐标: x=右(长度方向), y=上(高度方向), z=前(宽度方向)
+    // 旋转: 先绕世界 Y 轴转 az,再绕新 X 轴转 el
+    // 最终屏幕: 取旋转后 [0] → 屏幕 x, 旋转后 [1] → 屏幕 y(朝上取负)
+    projCache.M = [
+      [ ca,      0,   -sa    ],   // screen-x basis
+      [ sa*se,   ce,   ca*se ],   // screen-y basis (上方为负)
+      [ sa*ce,  -se,   ca*ce ]    // depth (用于遮挡排序)
+    ];
+    projCache.az = CAM.az; projCache.el = CAM.el;
+  }
+
+  var cam = { ox:0, oy:0, scale:1 };
+
+  function projRaw(v) {
+    var M = projCache.M;
+    return {
+      sx: M[0][0]*v.x + M[0][1]*v.y + M[0][2]*v.z,
+      sy: -(M[1][0]*v.x + M[1][1]*v.y + M[1][2]*v.z),
+      depth: M[2][0]*v.x + M[2][1]*v.y + M[2][2]*v.z
+    };
+  }
+
+  function project(v) {
+    var r = projRaw(v);
+    return { x: cam.ox + r.sx*cam.scale, y: cam.oy + r.sy*cam.scale, depth: r.depth };
+  }
+
+  function recalcCam() {
+    buildMatrix();
+    // 取长方体 8 顶点的包围盒,自动 fit 画面
+    var verts = cubeVertices();
+    var minSx=Infinity, maxSx=-Infinity, minSy=Infinity, maxSy=-Infinity;
+    verts.forEach(function(v){
+      var r = projRaw(v);
+      if(r.sx < minSx) minSx=r.sx; if(r.sx > maxSx) maxSx=r.sx;
+      if(-r.sy < minSy) minSy=-r.sy; if(-r.sy > maxSy) maxSy=-r.sy;
+    });
+    var pad = 0.12;
+    var bw = (maxSx-minSx)||1, bh = (maxSy-minSy)||1;
+    cam.scale = Math.min( W*(1-2*pad)/bw, H*(1-2*pad)/bh );
+    cam.ox = W/2 - (minSx+maxSx)/2 * cam.scale;
+    cam.oy = H/2 + (minSy+maxSy)/2 * cam.scale;
+  }
+
+  // ========== 长方体几何 ==========
+  // 顶点编号(以底面左后=0为原点):
+  //   底面: 0=(0,0,0), 1=(lx,0,0), 2=(lx,0,lz), 3=(0,0,lz)  注意 lz=宽(y轴=高度)
+  //   顶面: 4=(0,ly,0), 5=(lx,ly,0), 6=(lx,ly,lz), 7=(0,ly,lz)
+  // 世界坐标: x=长(右), y=高(上), z=宽(前)
+  function cubeVertices() {
+    var lx=BOX.lx, ly=BOX.ly, lz=BOX.lz;
+    return [
+      vec3(0,  0,  0),   // 0
+      vec3(lx, 0,  0),   // 1
+      vec3(lx, 0,  lz),  // 2
+      vec3(0,  0,  lz),  // 3
+      vec3(0,  ly, 0),   // 4
+      vec3(lx, ly, 0),   // 5
+      vec3(lx, ly, lz),  // 6
+      vec3(0,  ly, lz)   // 7
+    ];
+  }
+
+  // 12 条棱: [v_i, v_j]
+  var EDGES = [
+    [0,1],[1,2],[2,3],[3,0],   // 底面
+    [4,5],[5,6],[6,7],[7,4],   // 顶面
+    [0,4],[1,5],[2,6],[3,7]    // 侧棱
+  ];
+
+  // 6 个面(用于遮挡判断): 面索引 → 法向(outward),及构成顶点
+  var FACES = [
+    { verts:[0,1,2,3], n: vec3(0,-1,0)  },  // 底面
+    { verts:[4,5,6,7], n: vec3(0,1,0)   },  // 顶面
+    { verts:[0,1,5,4], n: vec3(0,0,-1)  },  // 前面(z=0)
+    { verts:[2,3,7,6], n: vec3(0,0,1)   },  // 后面(z=lz)
+    { verts:[0,3,7,4], n: vec3(-1,0,0)  },  // 左面
+    { verts:[1,2,6,5], n: vec3(1,0,0)   }   // 右面
+  ];
+
+  // 判断一条棱是否"可见"(至少有一个相邻面对摄像机可见)
+  function edgeVisible(ei) {
+    // 棱 [a,b] 属于哪两个面
+    var e = EDGES[ei];
+    var adjFaces = [];
+    FACES.forEach(function(f, fi){
+      var v = f.verts;
+      // 检查棱的两端点都在该面的顶点列表里
+      var hasA = v.indexOf(e[0])>=0, hasB = v.indexOf(e[1])>=0;
+      if(hasA && hasB) adjFaces.push(fi);
+    });
+    // 相邻面中任一面朝向摄像机(法向量与视方向同侧)则棱可见
+    var M = projCache.M;
+    var eyeDir = vec3(M[2][0], M[2][1], M[2][2]); // 视线方向(从场景指向相机)
+    for(var i=0;i<adjFaces.length;i++){
+      var fn = FACES[adjFaces[i]].n;
+      if(vdot(fn, eyeDir)>-0.01) return true;
+    }
+    return false;
+  }
+
+  // ========== 截面计算 ==========
+  // 截面以水平参数 t 切 y = t * BOX.ly (水平截面);
+  // 对角截面模式: 平面穿过 A=(lx,0,0), B=(0,0,lz), C=(0,ly,0)
+  // 线面角演示: 斜截面穿过底面对角线与顶点
+
+  function computeSection() {
+    var verts = cubeVertices();
+    var lx=BOX.lx, ly=BOX.ly, lz=BOX.lz;
+    var t = SEC.t;
+
+    if(sectionMode === "horiz") {
+      // 水平截面: y = t*ly,截面为矩形
+      var yc = t*ly;
+      var pts = [
+        vec3(0,  yc, 0),
+        vec3(lx, yc, 0),
+        vec3(lx, yc, lz),
+        vec3(0,  yc, lz)
+      ];
+      var n = vec3(0,1,0);
+      return { pts:pts, n:n };
+    }
+
+    if(sectionMode === "diag") {
+      // 对角截面: 平面过 P0=(lx,0,0), P1=(0,ly,0), P2=(0,0,lz) + P3=(lx,ly,lz) 都在面上
+      // 平面方程: x/lx + y/ly + z/lz = 1 (法向量 n=(1/lx,1/ly,1/lz))
+      // 截面与长方体的交:对每条棱求交点
+      var nVec = vnorm(vec3(1/lx, 1/ly, 1/lz));
+      var d = 1; // 平面方程: n·p = d (归一化后)
+      var pts3 = clipCuboidByPlane(verts, nVec, vdot(nVec, vec3(lx,0,0)));
+      var n3 = nVec;
+      // 截面位置滑块沿法向量方向平移
+      var offset = (t - 0.5) * Math.min(lx,ly,lz) * 0.7;
+      var dOff = vdot(nVec, vec3(lx,0,0)) + offset;
+      var pts4 = clipCuboidByPlane(verts, nVec, dOff);
+      return { pts:pts4, n:nVec };
+    }
+
+    // "slant" 斜截面: 过底面宽向中线和顶面一侧
+    if(sectionMode === "slant") {
+      // 截面法向量 n = (sin(alpha), cos(alpha)*lz/ly, 0) 方向的斜截
+      var alpha = rad(LINE.alpha);
+      var nSlant = vnorm(vec3(0, Math.cos(alpha), -Math.sin(alpha)));
+      var dSlant = t * vdot(nSlant, vec3(0, ly, 0));
+      var ptsS = clipCuboidByPlane(verts, nSlant, dSlant);
+      return { pts:ptsS, n:nSlant };
+    }
+
+    // 默认水平
+    var yc0 = t*ly;
+    return {
+      pts: [vec3(0,yc0,0), vec3(lx,yc0,0), vec3(lx,yc0,lz), vec3(0,yc0,lz)],
+      n: vec3(0,1,0)
+    };
+  }
+
+  // 用平面 (n,d) 裁剪长方体,返回截面多边形顶点(Sutherland–Hodgman 变体:对每条棱求交)
+  function clipCuboidByPlane(verts, n, d) {
+    var pts = [];
+    EDGES.forEach(function(e) {
+      var p0 = verts[e[0]], p1 = verts[e[1]];
+      var d0 = vdot(n, p0) - d, d1 = vdot(n, p1) - d;
+      if(Math.abs(d0) < 1e-9) { addUnique(pts, p0); }
+      else if(Math.abs(d1) < 1e-9) { /* will be caught by another edge */ }
+      else if(d0*d1 < 0) {
+        // 棱与平面相交
+        var frac = d0 / (d0 - d1);
+        var ip = vadd(p0, vscale(vsub(p1, p0), frac));
+        addUnique(pts, ip);
+      }
+    });
+    if(pts.length < 3) return pts;
+    // 按平面内角度排序(凸多边形)
+    return sortPolyConvex(pts, n);
+  }
+
+  function addUnique(arr, v) {
+    for(var i=0;i<arr.length;i++){
+      if(Math.abs(arr[i].x-v.x)<1e-6 && Math.abs(arr[i].y-v.y)<1e-6 && Math.abs(arr[i].z-v.z)<1e-6) return;
+    }
+    arr.push(v);
+  }
+
+  function sortPolyConvex(pts, n) {
+    // 求重心
+    var cx=0,cy=0,cz=0;
+    pts.forEach(function(p){ cx+=p.x; cy+=p.y; cz+=p.z; });
+    cx/=pts.length; cy/=pts.length; cz/=pts.length;
+    var center = vec3(cx,cy,cz);
+    // 建两个平面内正交基
+    var ref = vsub(pts[0], center);
+    var u = vnorm(ref);
+    var v = vnorm(vcross(n, u));
+    // 计算每点的极角
+    var withAngle = pts.map(function(p){
+      var d = vsub(p, center);
+      var ang = Math.atan2(vdot(d,v), vdot(d,u));
+      return { p:p, ang:ang };
+    });
+    withAngle.sort(function(a,b){ return a.ang-b.ang; });
+    return withAngle.map(function(a){ return a.p; });
+  }
+
+  // ========== 线面角计算 ==========
+  // 直线方向向量: 在 xz 平面内以角 alpha 倾斜
+  function lineDirection() {
+    var a = rad(LINE.alpha);
+    return vnorm(vec3(Math.cos(a), Math.sin(a)*0.5, Math.sin(a)));
+  }
+
+  function computeAngle(n, a) {
+    var dot = Math.abs(vdot(n, a));
+    var cosAng = dot / (vlen(n)*vlen(a));
+    cosAng = Math.min(1, cosAng);
+    var sinTheta = cosAng; // sin(theta) = |n·a|/(|n||a|)
+    return Math.asin(sinTheta); // 线面角 theta (0..pi/2)
+  }
+
+  // ========== 绘制 ==========
+  function getCss(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+
+  function drawArrow(from, to, color, lineW, arrowSize) {
+    var fp = project(from), tp = project(to);
+    var dx = tp.x-fp.x, dy = tp.y-fp.y;
+    var len = Math.sqrt(dx*dx+dy*dy)||1;
+    var ux = dx/len, uy = dy/len;
+    var as = arrowSize||8;
+    ctx.save();
+    ctx.strokeStyle = color; ctx.fillStyle = color;
+    ctx.lineWidth = lineW||2;
+    ctx.beginPath(); ctx.moveTo(fp.x,fp.y); ctx.lineTo(tp.x,tp.y); ctx.stroke();
+    // 箭头
+    ctx.beginPath();
+    ctx.moveTo(tp.x, tp.y);
+    ctx.lineTo(tp.x - ux*as - uy*as*0.5, tp.y - uy*as + ux*as*0.5);
+    ctx.lineTo(tp.x - ux*as + uy*as*0.5, tp.y - uy*as - ux*as*0.5);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
+  function labelAt(v, txt, color, dx, dy) {
+    var p = project(v);
+    ctx.save();
+    ctx.fillStyle = color||getCss("--muted");
+    ctx.font = "bold 12px 'Microsoft YaHei', sans-serif";
+    ctx.textAlign = dx>0?"left":dx<0?"right":"center";
+    ctx.textBaseline = dy<0?"bottom":"top";
+    ctx.fillText(txt, p.x+(dx||0), p.y+(dy||0));
+    ctx.restore();
+  }
+
+  function draw() {
+    buildMatrix();
+    recalcCam();
+
+    ctx.clearRect(0,0,W,H);
+
+    var verts = cubeVertices();
+    var section = computeSection();
+    var lineDir = lineDirection();
+    var lx=BOX.lx, ly=BOX.ly, lz=BOX.lz;
+    var n = section.n;
+
+    // ---- 1. 截面填充(先画,在棱后面) ----
+    var spts = section.pts;
+    if(spts.length >= 3) {
+      ctx.save();
+      ctx.beginPath();
+      var sp0 = project(spts[0]);
+      ctx.moveTo(sp0.x, sp0.y);
+      for(var i=1;i<spts.length;i++){
+        var spi = project(spts[i]);
+        ctx.lineTo(spi.x, spi.y);
+      }
+      ctx.closePath();
+      ctx.fillStyle = getCss("--section-fill") || "rgba(255,209,102,0.13)";
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // ---- 2. 长方体棱线(先画隐藏线) ----
+    EDGES.forEach(function(e, ei) {
+      var visible = edgeVisible(ei);
+      var p0 = project(verts[e[0]]), p1 = project(verts[e[1]]);
+      ctx.save();
+      ctx.lineWidth = visible ? 1.8 : 1;
+      ctx.strokeStyle = visible ? getCss("--edge") : getCss("--edge-hidden");
+      if(!visible){
+        ctx.setLineDash([4,4]);
+      }
+      ctx.beginPath(); ctx.moveTo(p0.x,p0.y); ctx.lineTo(p1.x,p1.y); ctx.stroke();
+      ctx.restore();
+    });
+
+    // ---- 3. 截面多边形轮廓 ----
+    if(spts.length >= 3) {
+      ctx.save();
+      ctx.strokeStyle = getCss("--section")||"#ffd166";
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      var q0 = project(spts[0]);
+      ctx.moveTo(q0.x, q0.y);
+      for(var j=1;j<spts.length;j++){
+        var qj = project(spts[j]);
+        ctx.lineTo(qj.x, qj.y);
+      }
+      ctx.closePath(); ctx.stroke();
+      ctx.restore();
+    }
+
+    // ---- 4. 法向量箭头(从截面重心出发) ----
+    var nColor = getCss("--normal")||"#c792ea";
+    if(spts.length >= 3){
+      var cx3=0,cy3=0,cz3=0;
+      spts.forEach(function(p){ cx3+=p.x; cy3+=p.y; cz3+=p.z; });
+      var nCt = spts.length;
+      var centroid = vec3(cx3/nCt, cy3/nCt, cz3/nCt);
+      var nLen = Math.min(lx,ly,lz)*0.45;
+      var nEnd = vadd(centroid, vscale(vnorm(n), nLen));
+      drawArrow(centroid, nEnd, nColor, 2.2, 9);
+      // 标注 n
+      labelAt(nEnd, t("canvas-n"), nColor, 8, -8);
+    }
+
+    // ---- 5. 空间直线(过长方体中心,方向=lineDir) ----
+    var boxCenter = vec3(lx/2, ly/2, lz/2);
+    var halfLen = Math.min(lx,ly,lz)*0.65;
+    var lineStart = vsub(boxCenter, vscale(lineDir, halfLen));
+    var lineEnd   = vadd(boxCenter, vscale(lineDir, halfLen));
+    var lineColor = getCss("--line3d")||"#58d68d";
+    ctx.save();
+    ctx.strokeStyle = lineColor; ctx.lineWidth = 2;
+    var lsP = project(lineStart), leP = project(lineEnd);
+    ctx.beginPath(); ctx.moveTo(lsP.x, lsP.y); ctx.lineTo(leP.x, leP.y); ctx.stroke();
+    ctx.restore();
+    labelAt(lineEnd, t("canvas-line"), lineColor, 6, -6);
+
+    // ---- 6. 射影和线面角弧 ----
+    if(spts.length >= 3 && n){
+      // 射影:直线方向在截面上的投影
+      var proj3 = vsub(lineDir, vscale(n, vdot(lineDir, n))); // a - (a·n̂)n̂
+      var projLen = vlen(proj3);
+      var theta = computeAngle(n, lineDir);
+      var thetaDeg = deg(theta);
+
+      // 画射影方向(从box中心到截面平面上的射影端点)
+      if(projLen > 0.01){
+        var projDir = vnorm(proj3);
+        var projEnd = vadd(boxCenter, vscale(projDir, halfLen*0.75));
+        ctx.save();
+        ctx.strokeStyle = getCss("--angle")||"#ef7a85";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([5,3]);
+        var bcP = project(boxCenter), peP = project(projEnd);
+        ctx.beginPath(); ctx.moveTo(bcP.x, bcP.y); ctx.lineTo(peP.x, peP.y); ctx.stroke();
+        ctx.restore();
+
+        // 在 2D 画布上画弧表示角度
+        var bcScreen = project(boxCenter);
+        var leScreen = project(lineEnd);
+        var peScreen = project(projEnd);
+
+        var ang1 = Math.atan2(leScreen.y-bcScreen.y, leScreen.x-bcScreen.x);
+        var ang2 = Math.atan2(peScreen.y-bcScreen.y, peScreen.x-bcScreen.x);
+        var arcR = 22;
+        ctx.save();
+        ctx.strokeStyle = getCss("--angle")||"#ef7a85";
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.arc(bcScreen.x, bcScreen.y, arcR, Math.min(ang1,ang2), Math.max(ang1,ang2));
+        ctx.stroke();
+        // θ 标注
+        var midAng = (ang1+ang2)/2;
+        ctx.fillStyle = getCss("--angle")||"#ef7a85";
+        ctx.font = "bold 13px serif";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(t("canvas-angle"), bcScreen.x + Math.cos(midAng)*34, bcScreen.y + Math.sin(midAng)*34);
+        ctx.restore();
+      }
+
+      // 更新侧栏读数
+      var nDisp = fmt2(n.x)+", "+fmt2(n.y)+", "+fmt2(n.z);
+      var aDisp = fmt2(lineDir.x)+", "+fmt2(lineDir.y)+", "+fmt2(lineDir.z);
+      var dotDisp = fmt2(vdot(vnorm(n), lineDir));
+      document.getElementById("ro-angle").textContent = thetaDeg.toFixed(1)+"°";
+      document.getElementById("ro-normal").textContent = "("+nDisp+")";
+      document.getElementById("ro-dir").textContent = "("+aDisp+")";
+      document.getElementById("ro-dot").textContent = dotDisp;
+      var shapeNames = {3:"shape-tri",4:"shape-quad",5:"shape-pent",6:"shape-hex"};
+      var sk = shapeNames[spts.length]||"shape-unknown";
+      document.getElementById("ro-section").textContent = t(sk)+" ("+spts.length+")";
+    }
+
+    // ---- 7. 顶点标注(坐标原点、A、B) ----
+    var cornerColor = getCss("--muted")||"#93a1b1";
+    labelAt(verts[0], "O", cornerColor, -10, 4);
+    labelAt(verts[1], "A", cornerColor, 6, 4);
+    labelAt(verts[3], "B", cornerColor, -10, 4);
+    labelAt(verts[4], "C", cornerColor, -10, -10);
+
+    // ---- 8. 截面标注 ----
+    if(spts.length>=3){
+      var sp1 = project(spts[0]);
+      ctx.save();
+      ctx.fillStyle = getCss("--section")||"#ffd166";
+      ctx.font = "12px 'Microsoft YaHei', sans-serif";
+      ctx.textAlign = "left"; ctx.textBaseline = "middle";
+      ctx.fillText(t("canvas-section"), sp1.x+6, sp1.y);
+      ctx.restore();
+    }
+  }
+
+  // ========== 尺寸自适应 ==========
+  function resize() {
+    var rect = canvas.parentElement.getBoundingClientRect();
+    W = rect.width; H = rect.height;
+    canvas.width  = Math.round(W*DPR);
+    canvas.height = Math.round(H*DPR);
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    draw();
+  }
+
+  // ========== 拖拽旋转 ==========
+  var drag = { active:false, lastX:0, lastY:0 };
+
+  canvas.addEventListener("mousedown", function(e){
+    drag.active=true; drag.lastX=e.clientX; drag.lastY=e.clientY;
+    canvas.classList.add("dragging");
+  });
+  window.addEventListener("mousemove", function(e){
+    if(!drag.active) return;
+    var dx = e.clientX-drag.lastX, dy = e.clientY-drag.lastY;
+    CAM.az = (CAM.az + dx*0.5 + 360) % 360;
+    CAM.el = Math.max(5, Math.min(80, CAM.el - dy*0.3));
+    drag.lastX=e.clientX; drag.lastY=e.clientY;
+    syncSliders();
+    draw();
+  });
+  window.addEventListener("mouseup", function(){
+    drag.active=false; canvas.classList.remove("dragging");
+  });
+
+  // 触屏支持
+  var touch = { active:false, lastX:0, lastY:0 };
+  canvas.addEventListener("touchstart", function(e){
+    if(e.touches.length!==1) return;
+    touch.active=true; touch.lastX=e.touches[0].clientX; touch.lastY=e.touches[0].clientY;
+    e.preventDefault();
+  }, {passive:false});
+  canvas.addEventListener("touchmove", function(e){
+    if(!touch.active||e.touches.length!==1) return;
+    var dx=e.touches[0].clientX-touch.lastX, dy=e.touches[0].clientY-touch.lastY;
+    CAM.az = (CAM.az + dx*0.5 + 360) % 360;
+    CAM.el = Math.max(5, Math.min(80, CAM.el - dy*0.3));
+    touch.lastX=e.touches[0].clientX; touch.lastY=e.touches[0].clientY;
+    syncSliders(); draw();
+    e.preventDefault();
+  }, {passive:false});
+  canvas.addEventListener("touchend", function(){ touch.active=false; });
+
+  // ========== 滑块 ==========
+  function syncSliders(){
+    document.getElementById("sl-azimuth").value = Math.round(CAM.az);
+    document.getElementById("sl-elevation").value = Math.round(CAM.el);
+    document.getElementById("num-azimuth").textContent = Math.round(CAM.az);
+    document.getElementById("num-elevation").textContent = Math.round(CAM.el);
+  }
+
+  function bindSlider(id, numId, onChange) {
+    var sl = document.getElementById(id);
+    var nm = document.getElementById(numId);
+    sl.addEventListener("input", function(){
+      nm.textContent = parseFloat(sl.value).toFixed(sl.step < 1 ? 2 : 0);
+      onChange(parseFloat(sl.value));
+      draw();
+    });
+  }
+
+  bindSlider("sl-azimuth","num-azimuth", function(v){ CAM.az=v; projCache.az=null; });
+  bindSlider("sl-elevation","num-elevation", function(v){ CAM.el=v; projCache.el=null; });
+  bindSlider("sl-section","num-section", function(v){ SEC.t=v; });
+  bindSlider("sl-line","num-line", function(v){ LINE.alpha=v; });
+  bindSlider("sl-lx","num-lx", function(v){ BOX.lx=v; });
+  bindSlider("sl-ly","num-ly", function(v){ BOX.ly=v; });
+  bindSlider("sl-lz","num-lz", function(v){ BOX.lz=v; });
+
+  // ========== 预设 ==========
+  function setPreset(id, params) {
+    // 更新 active 按钮
+    ["preset-cube","preset-rect","preset-diag","preset-demo"].forEach(function(k){
+      document.getElementById(k).classList.toggle("active", k===id);
+    });
+    activePreset = id;
+    if(params.lx !== undefined){ BOX.lx=params.lx; setSliderNum("sl-lx","num-lx",params.lx,"1"); }
+    if(params.ly !== undefined){ BOX.ly=params.ly; setSliderNum("sl-ly","num-ly",params.ly,"1"); }
+    if(params.lz !== undefined){ BOX.lz=params.lz; setSliderNum("sl-lz","num-lz",params.lz,"1"); }
+    if(params.az !== undefined){ CAM.az=params.az; projCache.az=null; setSliderNum("sl-azimuth","num-azimuth",params.az,"0"); }
+    if(params.el !== undefined){ CAM.el=params.el; projCache.el=null; setSliderNum("sl-elevation","num-elevation",params.el,"0"); }
+    if(params.t  !== undefined){ SEC.t=params.t;   setSliderNum("sl-section","num-section",params.t,"2"); }
+    if(params.alpha !== undefined){ LINE.alpha=params.alpha; setSliderNum("sl-line","num-line",params.alpha,"0"); }
+    if(params.mode !== undefined){ sectionMode=params.mode; }
+    draw();
+  }
+
+  function setSliderNum(slId, numId, val, dec) {
+    var sl = document.getElementById(slId);
+    var nm = document.getElementById(numId);
+    sl.value = val;
+    nm.textContent = parseFloat(val).toFixed(parseInt(dec)||0);
+  }
+
+  document.getElementById("preset-cube").addEventListener("click", function(){
+    sectionMode="horiz";
+    setPreset("preset-cube", {lx:2,ly:2,lz:2, az:30,el:25, t:0.5, alpha:45});
+  });
+  document.getElementById("preset-rect").addEventListener("click", function(){
+    sectionMode="horiz";
+    setPreset("preset-rect", {lx:3,ly:2,lz:1.5, az:40,el:22, t:0.5, alpha:35});
+  });
+  document.getElementById("preset-diag").addEventListener("click", function(){
+    sectionMode="diag";
+    setPreset("preset-diag", {lx:2,ly:2,lz:2, az:35,el:28, t:0.5, alpha:54.7});
+  });
+  document.getElementById("preset-demo").addEventListener("click", function(){
+    sectionMode="slant";
+    setPreset("preset-demo", {lx:2,ly:2,lz:2, az:50,el:30, t:0.5, alpha:60});
+  });
+
+  // ========== 初始化 ==========
+  window.addEventListener("resize", resize);
+  applyLang();
+  resize();
+})();
+</script>
+</body>
+</html>
