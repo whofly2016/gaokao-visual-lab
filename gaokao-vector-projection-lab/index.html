@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>向量可视化实验室 · 点乘 / 投影 / 力的分解</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --panel: #1a212b;
+    --panel2: #232c38;
+    --ink: #e6edf3;
+    --muted: #93a1b1;
+    --accent: #4fc3f7;
+    --veca: #58d68d;     /* 向量 a */
+    --vecb: #ffd166;     /* 向量 b */
+    --proj: #ff6b6b;     /* 投影向量 / 高亮线段 */
+    --aux: #5dade2;      /* 辅助虚线 */
+    --force: #c792ea;    /* 力 F(分解模式) */
+    --comp1: #58d68d;    /* 分量 1(切向) */
+    --comp2: #ffd166;    /* 分量 2(法向) */
+    --grid: #2a3441;
+    --axis: #5b6b7b;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    height: 100%;
+  }
+  .app {
+    display: flex;
+    flex-direction: row;
+    min-height: 100vh;
+  }
+  .stage {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    min-width: 0;
+  }
+  .stage h1 {
+    font-size: 18px;
+    margin: 0 0 4px 0;
+    font-weight: 600;
+  }
+  .stage .sub {
+    color: var(--muted);
+    font-size: 13px;
+    margin: 0 0 12px 0;
+  }
+  .canvas-wrap {
+    position: relative;
+    flex: 1 1 auto;
+    background: #0b0f14;
+    border: 1px solid var(--grid);
+    border-radius: 10px;
+    overflow: hidden;
+    min-height: 360px;
+  }
+  canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+  canvas.dragging { cursor: grabbing; }
+
+  .panel {
+    flex: 0 0 340px;
+    background: var(--panel);
+    border-left: 1px solid var(--grid);
+    padding: 18px;
+    overflow-y: auto;
+    max-height: 100vh;
+  }
+  .panel h2 {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    margin: 18px 0 8px;
+    border-bottom: 1px solid var(--grid);
+    padding-bottom: 6px;
+  }
+  .panel h2:first-child { margin-top: 0; }
+
+  .expr {
+    background: var(--panel2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: "Cambria Math", "Times New Roman", serif;
+    font-size: 16px;
+    margin: 6px 0;
+    line-height: 1.55;
+    word-break: break-word;
+  }
+  .expr .lbl { color: var(--accent); font-style: italic; }
+  .expr small { color: var(--muted); font-size: 12px; font-family: "Microsoft YaHei", sans-serif; }
+
+  /* 原生 MathML:与中文字号协调,行内垂直居中 */
+  math { font-size: 1.06em; vertical-align: middle; }
+  .expr math[display="block"] { margin: 2px 0; }
+  .expr small { display: block; margin-top: 2px; }
+  .note math { font-size: 1.04em; }
+
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 8px 0;
+    font-size: 14px;
+  }
+  .row label { color: var(--muted); }
+  .row .val {
+    font-variant-numeric: tabular-nums;
+    font-family: "Consolas", monospace;
+    font-size: 14px;
+  }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .slider-row { margin: 12px 0; }
+  .slider-row .head {
+    display: flex; justify-content: space-between;
+    font-size: 13px; margin-bottom: 4px;
+  }
+  .slider-row .head .name { color: var(--ink); font-weight: 600; }
+  .slider-row .head .num {
+    font-family: "Consolas", monospace; color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .readout {
+    background: var(--panel2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: "Consolas", monospace;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  .readout .k { color: var(--muted); }
+  .readout .v { float: right; font-variant-numeric: tabular-nums; }
+  .swatch { display:inline-block; width:11px; height:11px; border-radius:3px; vertical-align:middle; margin-right:6px; }
+
+  .note {
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--muted);
+  }
+  .note b { color: var(--ink); }
+  .legend { font-size: 12.5px; line-height: 1.9; color: var(--muted); }
+
+  .mode-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  .mode-row button { flex: 1 1 0; }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  button {
+    background: var(--panel2);
+    color: var(--ink);
+    border: 1px solid var(--grid);
+    border-radius: 7px;
+    padding: 7px 11px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  button:hover { background: #2c3848; border-color: var(--accent); }
+  button.active { border-color: var(--accent); color: var(--accent); }
+
+  .compliance {
+    margin-top: 16px; font-size: 11.5px; color: #6b7886;
+    line-height: 1.6; border-top: 1px dashed var(--grid); padding-top: 10px;
+  }
+
+  .hidden { display: none; }
+
+  @media (max-width: 860px) {
+    .app { flex-direction: column; }
+    .panel { flex-basis: auto; border-left: none; border-top: 1px solid var(--grid); max-height: none; }
+    .canvas-wrap { min-height: 300px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="stage">
+    <h1>向量可视化实验室 — 点乘 · 投影 · 力的分解</h1>
+    <p class="sub" id="subHint">拖动向量 a(绿)、b(黄)的箭头端点,观察点乘、夹角与 a 在 b 上的投影实时变化。</p>
+    <div class="canvas-wrap">
+      <canvas id="cv"></canvas>
+    </div>
+  </div>
+
+  <aside class="panel">
+    <h2>模式</h2>
+    <div class="mode-row">
+      <button id="modeDot" class="active">点乘 · 投影</button>
+      <button id="modeForce">力的分解</button>
+    </div>
+
+    <!-- ============ 点乘 / 投影模式 ============ -->
+    <div id="dotPanel">
+      <h2>公式</h2>
+      <div class="expr">
+        <math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+          <mover><mi>a</mi><mo>→</mo></mover>
+          <mo>·</mo>
+          <mover><mi>b</mi><mo>→</mo></mover>
+          <mo>=</mo>
+          <mo>|</mo><mi>a</mi><mo>|</mo>
+          <mo>|</mo><mi>b</mi><mo>|</mo>
+          <mi>cos</mi><mo>&#x2061;</mo><mi>θ</mi>
+          <mo>=</mo>
+          <msub><mi>a</mi><mi>x</mi></msub>
+          <msub><mi>b</mi><mi>x</mi></msub>
+          <mo>+</mo>
+          <msub><mi>a</mi><mi>y</mi></msub>
+          <msub><mi>b</mi><mi>y</mi></msub>
+        </math>
+      </div>
+      <div class="expr">
+        <math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+          <msub><mtext>proj</mtext><mrow><mover><mi>a</mi><mo>→</mo></mover><mo>→</mo><mover><mi>b</mi><mo>→</mo></mover></mrow></msub>
+          <mo>=</mo>
+          <mfrac>
+            <mrow><mover><mi>a</mi><mo>→</mo></mover><mo>·</mo><mover><mi>b</mi><mo>→</mo></mover></mrow>
+            <mrow><mo>|</mo><mi>b</mi><mo>|</mo></mrow>
+          </mfrac>
+          <mo>=</mo>
+          <mo>|</mo><mi>a</mi><mo>|</mo>
+          <mi>cos</mi><mo>&#x2061;</mo><mi>θ</mi>
+        </math>
+        <small>（a 在 b 上,标量投影）</small>
+      </div>
+
+      <h2>实时数值</h2>
+      <div class="readout">
+        <div><span class="k"><span class="swatch" style="background:var(--veca)"></span>向量 <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover></math></span><span class="v" id="roA">(3, 1)</span></div>
+        <div><span class="k"><span class="swatch" style="background:var(--vecb)"></span>向量 <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>b</mi><mo>→</mo></mover></math></span><span class="v" id="roB">(2, 3)</span></div>
+        <div><span class="k"><math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mo>|</mo><mi>a</mi><mo>|</mo></mrow></math>（模）</span><span class="v" id="roLenA">—</span></div>
+        <div><span class="k"><math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mo>|</mo><mi>b</mi><mo>|</mo></mrow></math>（模）</span><span class="v" id="roLenB">—</span></div>
+        <div><span class="k"><math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mover><mi>a</mi><mo>→</mo></mover><mo>·</mo><mover><mi>b</mi><mo>→</mo></mover></mrow></math>（点乘）</span><span class="v" id="roDot">—</span></div>
+        <div><span class="k">夹角 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>θ</mi></math></span><span class="v" id="roAngle">—</span></div>
+        <div><span class="k"><span class="swatch" style="background:var(--proj)"></span><math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover></math> 在 <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>b</mi><mo>→</mo></mover></math> 上投影（标量）</span><span class="v" id="roProjA">—</span></div>
+        <div><span class="k"><math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>b</mi><mo>→</mo></mover></math> 在 <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover></math> 上投影（标量）</span><span class="v" id="roProjB">—</span></div>
+      </div>
+
+      <h2>预设</h2>
+      <div class="btn-row">
+        <button id="presetOrtho">正交（垂直）</button>
+        <button id="presetSame">同向</button>
+        <button id="preset60">夹角 60°</button>
+        <button id="presetObtuse">钝角</button>
+      </div>
+
+      <h2>图例</h2>
+      <div class="legend">
+        <span class="swatch" style="background:var(--veca)"></span><b style="color:var(--veca)">向量 <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover></math></b>(拖动绿色箭头端点)<br>
+        <span class="swatch" style="background:var(--vecb)"></span><b style="color:var(--vecb)">向量 <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>b</mi><mo>→</mo></mover></math></b>(拖动黄色箭头端点)<br>
+        <span class="swatch" style="background:var(--proj)"></span><b style="color:var(--proj)">投影向量</b>:<math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover></math> 在 <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>b</mi><mo>→</mo></mover></math> 方向上的影子<br>
+        <span class="swatch" style="background:var(--aux)"></span><b style="color:var(--aux)">辅助虚线</b>:a 端点到 b 所在直线的垂线
+      </div>
+
+      <h2>点乘与投影说明</h2>
+      <p class="note">
+        <b>点乘 <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover><mo>·</mo><mover><mi>b</mi><mo>→</mo></mover></math></b> 衡量两向量的「同向程度」,几何上等于 <b><math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mo>|</mo><mi>a</mi><mo>|</mo></mrow></math>·(<math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover></math> 在 <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>b</mi><mo>→</mo></mover></math> 上的投影)</b>。<br>
+        · <b><math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover><mo>·</mo><mover><mi>b</mi><mo>→</mo></mover><mo>&gt;</mo><mn>0</mn></math></b>:夹角为锐角,两向量大体同向。<br>
+        · <b><math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover><mo>·</mo><mover><mi>b</mi><mo>→</mo></mover><mo>=</mo><mn>0</mn></math></b>:夹角 90°,两向量<b>正交(垂直)</b>。<br>
+        · <b><math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover><mo>·</mo><mover><mi>b</mi><mo>→</mo></mover><mo>&lt;</mo><mn>0</mn></math></b>:夹角为钝角,两向量大体反向。<br>
+        <b>投影</b>是把 <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover></math>「压」到 <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>b</mi><mo>→</mo></mover></math> 所在直线上的影子,长度 = <math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mo>|</mo><mi>a</mi><mo>|</mo><mi>cos</mi><mo>&#x2061;</mo><mi>θ</mi></mrow></math>;红色高亮线段即为投影向量。
+      </p>
+    </div>
+
+    <!-- ============ 力的分解模式 ============ -->
+    <div id="forcePanel" class="hidden">
+      <h2>公式</h2>
+      <div class="expr">
+        <math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+          <mover><mi>F</mi><mo>→</mo></mover>
+          <mo>=</mo>
+          <msub><mover><mi>F</mi><mo>→</mo></mover><mtext>切</mtext></msub>
+          <mo>+</mo>
+          <msub><mover><mi>F</mi><mo>→</mo></mover><mtext>法</mtext></msub>
+        </math>
+        <small>（沿两正交方向分解）</small>
+      </div>
+      <div class="expr">
+        <math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+          <msub><mi>F</mi><mtext>切</mtext></msub>
+          <mo>=</mo>
+          <mo>|</mo><mi>F</mi><mo>|</mo>
+          <mi>cos</mi><mo>&#x2061;</mo><mi>φ</mi>
+          <mo>,</mo>
+          <mspace width="0.6em"/>
+          <msub><mi>F</mi><mtext>法</mtext></msub>
+          <mo>=</mo>
+          <mo>|</mo><mi>F</mi><mo>|</mo>
+          <mi>sin</mi><mo>&#x2061;</mo><mi>φ</mi>
+        </math>
+        <small>（φ 为 F 与切向夹角）</small>
+      </div>
+      <div class="expr">
+        <math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+          <msup><msub><mi>F</mi><mtext>切</mtext></msub><mn>2</mn></msup>
+          <mo>+</mo>
+          <msup><msub><mi>F</mi><mtext>法</mtext></msub><mn>2</mn></msup>
+          <mo>=</mo>
+          <msup><mrow><mo>|</mo><mi>F</mi><mo>|</mo></mrow><mn>2</mn></msup>
+        </math>
+        <small>（两正交分量满足勾股关系）</small>
+      </div>
+
+      <h2>实时数值</h2>
+      <div class="readout">
+        <div><span class="k"><span class="swatch" style="background:var(--force)"></span>力 <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>F</mi><mo>→</mo></mover></math></span><span class="v" id="roF">—</span></div>
+        <div><span class="k"><math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mo>|</mo><mi>F</mi><mo>|</mo></mrow></math>（大小）</span><span class="v" id="roLenF">—</span></div>
+        <div><span class="k">斜面倾角 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>α</mi></math></span><span class="v" id="roSlope">—</span></div>
+        <div><span class="k"><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>F</mi></math> 与切向夹角 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>φ</mi></math></span><span class="v" id="roPhi">—</span></div>
+        <div><span class="k"><span class="swatch" style="background:var(--comp1)"></span>切向分量 <math xmlns="http://www.w3.org/1998/Math/MathML"><msub><mi>F</mi><mtext>切</mtext></msub></math></span><span class="v" id="roComp1">—</span></div>
+        <div><span class="k"><span class="swatch" style="background:var(--comp2)"></span>法向分量 <math xmlns="http://www.w3.org/1998/Math/MathML"><msub><mi>F</mi><mtext>法</mtext></msub></math></span><span class="v" id="roComp2">—</span></div>
+      </div>
+
+      <h2>斜面倾角 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>α</mi></math></h2>
+      <div class="slider-row">
+        <div class="head"><span class="name"><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>α</mi></math>（分解坐标系倾角）</span><span class="num" id="numSlope">30°</span></div>
+        <input type="range" id="sSlope" min="0" max="90" step="1" value="30">
+      </div>
+
+      <h2>预设</h2>
+      <div class="btn-row">
+        <button id="presetIncline" class="active">斜面受力 30°</button>
+        <button id="presetAxis">沿坐标轴分解</button>
+        <button id="presetSteep">陡坡 60°</button>
+      </div>
+
+      <h2>图例</h2>
+      <div class="legend">
+        <span class="swatch" style="background:var(--force)"></span><b style="color:var(--force)">力 <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>F</mi><mo>→</mo></mover></math></b>(拖动紫色箭头端点)<br>
+        <span class="swatch" style="background:var(--comp1)"></span><b style="color:var(--comp1)">切向分量</b>:沿斜面方向<br>
+        <span class="swatch" style="background:var(--comp2)"></span><b style="color:var(--comp2)">法向分量</b>:垂直斜面方向<br>
+        <span class="swatch" style="background:var(--aux)"></span><b style="color:var(--aux)">虚线</b>:平行四边形(矩形)辅助线
+      </div>
+
+      <h2>力的分解说明</h2>
+      <p class="note">
+        把一个力 <b><math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>F</mi><mo>→</mo></mover></math></b> 沿两个<b>互相垂直</b>的方向(这里取沿斜面的<b>切向</b>与垂直斜面的<b>法向</b>)分解,
+        得到两个分量,满足 <b><math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mover><mi>F</mi><mo>→</mo></mover><mo>=</mo><msub><mover><mi>F</mi><mo>→</mo></mover><mtext>切</mtext></msub><mo>+</mo><msub><mover><mi>F</mi><mo>→</mo></mover><mtext>法</mtext></msub></mrow></math></b>(向量相加)。<br>
+        分量大小就是 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>F</mi></math> 在各方向上的<b>投影</b>:<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><msub><mi>F</mi><mtext>切</mtext></msub><mo>=</mo><mo>|</mo><mi>F</mi><mo>|</mo><mi>cos</mi><mo>&#x2061;</mo><mi>φ</mi></mrow></math>,<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><msub><mi>F</mi><mtext>法</mtext></msub><mo>=</mo><mo>|</mo><mi>F</mi><mo>|</mo><mi>sin</mi><mo>&#x2061;</mo><mi>φ</mi></mrow></math>。
+        拖动 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>F</mi></math> 或调整斜面倾角 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>α</mi></math>,观察两个正交分量如何此消彼长。
+      </p>
+    </div>
+
+    <div class="compliance">
+      合规声明:本 demo 仅使用<b>自绘抽象向量与可调参数</b>做概念可视化,
+      未复制任何高考原题文字、原卷图片或答案图,不是题目搬运。
+    </div>
+  </aside>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ====================================================================
+  // 状态
+  // ====================================================================
+  var mode = "dot";  // "dot" | "force"
+
+  // 点乘 / 投影模式:两个向量(世界坐标,起点均为原点)
+  var va = { x: 3, y: 1 };
+  var vb = { x: 2, y: 3 };
+
+  // 力的分解模式:力 F 与斜面倾角 α(度)
+  var vF = { x: 3, y: 2 };
+  var slopeDeg = 30;
+
+  // 世界坐标视窗(数学坐标范围),随窗口比例自适应
+  var view = { xMin: -5, xMax: 5, yMin: -5, yMax: 5 };
+  var dragging = null;   // 当前拖动的对象标识:"a" | "b" | "F" | null
+
+  var canvas = document.getElementById("cv");
+  var ctx = canvas.getContext("2d");
+  var DPR = Math.max(1, window.devicePixelRatio || 1);
+  var W = 0, H = 0;      // CSS 像素尺寸
+
+  // ====================================================================
+  // 向量数学
+  // ====================================================================
+  function dot(u, v)  { return u.x*v.x + u.y*v.y; }
+  function len(u)     { return Math.sqrt(u.x*u.x + u.y*u.y); }
+  function scale(u, s){ return { x: u.x*s, y: u.y*s }; }
+  function add(u, v)  { return { x: u.x+v.x, y: u.y+v.y }; }
+  // u 与 v 的夹角(弧度,0~π)
+  function angleBetween(u, v) {
+    var lu = len(u), lv = len(v);
+    if (lu < 1e-9 || lv < 1e-9) return NaN;
+    var c = dot(u, v) / (lu * lv);
+    c = Math.max(-1, Math.min(1, c));
+    return Math.acos(c);
+  }
+  // u 在 v 上的标量投影 = u·v / |v| = |u|cosθ
+  function scalarProj(u, v) {
+    var lv = len(v);
+    return lv < 1e-9 ? 0 : dot(u, v) / lv;
+  }
+  // u 在 v 上的投影向量 = (u·v / |v|²) · v
+  function vectorProj(u, v) {
+    var lv2 = dot(v, v);
+    return lv2 < 1e-9 ? { x: 0, y: 0 } : scale(v, dot(u, v) / lv2);
+  }
+
+  // ====================================================================
+  // 坐标变换:世界 <-> 屏幕
+  // ====================================================================
+  function sx(x) { return (x - view.xMin) / (view.xMax - view.xMin) * W; }
+  function sy(y) { return H - (y - view.yMin) / (view.yMax - view.yMin) * H; }
+  function wx(px){ return view.xMin + px / W * (view.xMax - view.xMin); }
+  function wy(py){ return view.yMin + (H - py) / H * (view.yMax - view.yMin); }
+
+  // 让坐标轴比例 1:1:根据画布宽高比设定 y 范围(以 x 范围为基准)
+  function fitView() {
+    var aspect = H / W;
+    var xRange = view.xMax - view.xMin;
+    var yRange = xRange * aspect;
+    var cy = (view.yMin + view.yMax) / 2;
+    view.yMin = cy - yRange / 2;
+    view.yMax = cy + yRange / 2;
+  }
+
+  function resize() {
+    var rect = canvas.parentElement.getBoundingClientRect();
+    W = rect.width; H = rect.height;
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    fitView();
+    draw();
+  }
+
+  // ====================================================================
+  // 绘制基础:网格、坐标轴
+  // ====================================================================
+  function niceStep(range, targetTicks) {
+    var raw = range / targetTicks;
+    var mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    var norm = raw / mag;
+    var step;
+    if (norm < 1.5) step = 1; else if (norm < 3) step = 2; else if (norm < 7) step = 5; else step = 10;
+    return step * mag;
+  }
+
+  function drawGrid() {
+    var stepX = niceStep(view.xMax - view.xMin, 10);
+    var stepY = niceStep(view.yMax - view.yMin, 10);
+
+    ctx.lineWidth = 1;
+    ctx.font = "11px Consolas, monospace";
+    ctx.textBaseline = "top";
+
+    ctx.strokeStyle = getCss("--grid");
+    var startX = Math.ceil(view.xMin / stepX) * stepX;
+    for (var gx = startX; gx <= view.xMax; gx += stepX) {
+      var px = sx(gx);
+      ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, H); ctx.stroke();
+    }
+    var startY = Math.ceil(view.yMin / stepY) * stepY;
+    for (var gy = startY; gy <= view.yMax; gy += stepY) {
+      var py = sy(gy);
+      ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(W, py); ctx.stroke();
+    }
+
+    // 坐标轴
+    ctx.strokeStyle = getCss("--axis");
+    ctx.lineWidth = 1.5;
+    var y0 = sy(0), x0p = sx(0);
+    ctx.beginPath(); ctx.moveTo(0, y0); ctx.lineTo(W, y0); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x0p, 0); ctx.lineTo(x0p, H); ctx.stroke();
+
+    // 刻度标签
+    ctx.fillStyle = getCss("--muted");
+    for (var lx = startX; lx <= view.xMax; lx += stepX) {
+      if (Math.abs(lx) < 1e-9) continue;
+      ctx.fillText(fmt(lx), sx(lx) + 2, y0 + 3);
+    }
+    ctx.textBaseline = "middle";
+    for (var ly = startY; ly <= view.yMax; ly += stepY) {
+      if (Math.abs(ly) < 1e-9) continue;
+      ctx.fillText(fmt(ly), x0p + 4, sy(ly));
+    }
+  }
+
+  // 画一支从世界点 p0 到 p1 的带箭头向量
+  function drawArrow(p0, p1, color, width, head) {
+    var x0 = sx(p0.x), y0 = sy(p0.y);
+    var x1 = sx(p1.x), y1 = sy(p1.y);
+    var ang = Math.atan2(y1 - y0, x1 - x0);
+    var hl = head == null ? 12 : head;     // 箭头长度(屏幕像素)
+    var ha = 0.42;                         // 箭头半张角
+
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+
+    // 主干(留出箭头长度,避免线头穿出箭尖)
+    var bx = x1 - Math.cos(ang) * hl * 0.6;
+    var by = y1 - Math.sin(ang) * hl * 0.6;
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(bx, by);
+    ctx.stroke();
+
+    // 箭头
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x1 - hl*Math.cos(ang - ha), y1 - hl*Math.sin(ang - ha));
+    ctx.lineTo(x1 - hl*Math.cos(ang + ha), y1 - hl*Math.sin(ang + ha));
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // 可拖动端点的把手圆
+  function drawHandle(p, color) {
+    var px = sx(p.x), py = sy(p.y);
+    ctx.fillStyle = color;
+    ctx.strokeStyle = "#0b0f14";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(px, py, 7, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  }
+
+  function drawSeg(p0, p1, color, width, dash) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    if (dash) ctx.setLineDash(dash); else ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(sx(p0.x), sy(p0.y));
+    ctx.lineTo(sx(p1.x), sy(p1.y));
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // 标注文本。font 省略时用中文无衬线;单字母数学变量传入斜体衬线,
+  // 与侧栏 MathML 的斜体变量字形保持一致(纯数学排版,不改坐标/几何)。
+  function label(p, text, color, dx, dy, font) {
+    ctx.fillStyle = color;
+    ctx.font = font || "13px 'Microsoft YaHei', sans-serif";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, sx(p.x) + (dx||0), sy(p.y) + (dy||0));
+  }
+  // 单字母数学变量的斜体字体(与 DOM 的 Cambria Math 斜体一致)
+  var MATH_FONT = "italic 15px 'Cambria Math', 'Times New Roman', serif";
+  // 带下标的变量标注:主字母斜体衬线 + 小一号直立下标(对应 DOM 的 <msub><mi>F</mi><mtext>切</mtext></msub>)
+  function labelSub(p, base, sub, color, dx, dy) {
+    var bx = sx(p.x) + (dx||0), by = sy(p.y) + (dy||0);
+    ctx.fillStyle = color;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.font = MATH_FONT;
+    ctx.fillText(base, bx, by);
+    var bw = ctx.measureText(base).width;
+    ctx.font = "11px 'Microsoft YaHei', sans-serif";
+    ctx.fillText(sub, bx + bw + 1, by + 4);
+  }
+
+  var O = { x: 0, y: 0 };
+
+  // ====================================================================
+  // 模式一:点乘 / 投影
+  // ====================================================================
+  function drawDotMode() {
+    var projVec = vectorProj(va, vb);      // a 在 b 上的投影向量
+    var footPx = projVec;                  // 投影向量终点 = 垂足(从原点起)
+
+    // 1) 投影辅助:b 所在直线(浅色,延伸)
+    if (len(vb) > 1e-9) {
+      var ub = scale(vb, 1 / len(vb));
+      var far = Math.max(view.xMax - view.xMin, view.yMax - view.yMin);
+      drawSeg(scale(ub, -far), scale(ub, far), getCss("--grid"), 1, [4, 4]);
+    }
+
+    // 2) 投影向量(红色高亮,从原点到垂足)
+    if (len(projVec) > 1e-6) {
+      drawArrow(O, projVec, getCss("--proj"), 5, 13);
+    }
+
+    // 3) 垂线:a 端点 → 垂足(蓝色虚线)
+    drawSeg(va, footPx, getCss("--aux"), 1.6, [6, 5]);
+
+    // 4) 两个主向量
+    drawArrow(O, vb, getCss("--vecb"), 3, 13);
+    drawArrow(O, va, getCss("--veca"), 3, 13);
+
+    // 5) 直角小方块(投影正交标记):在垂足处
+    drawRightAngleMark(footPx, va, vb);
+
+    // 6) 把手
+    drawHandle(va, getCss("--veca"));
+    drawHandle(vb, getCss("--vecb"));
+
+    // 7) 标签
+    label(va, "a", getCss("--veca"), 8, -4, MATH_FONT);
+    label(vb, "b", getCss("--vecb"), 8, -4, MATH_FONT);
+    if (len(projVec) > 0.3) label(scale(projVec, 0.55), "投影", getCss("--proj"), 6, 14);
+
+    updateDotPanel();
+  }
+
+  // 在垂足处画一个直角标记(表示投影向量 ⟂ 垂线)
+  function drawRightAngleMark(foot, aPt, b) {
+    if (len(b) < 1e-9) return;
+    var lp = len(foot);
+    if (lp < 0.3) return;
+    var ub = scale(b, 1 / len(b));               // b 方向单位向量
+    // 垂线方向单位向量 = (a - foot) 归一
+    var perp = { x: aPt.x - foot.x, y: aPt.y - foot.y };
+    var lperp = len(perp);
+    if (lperp < 0.2) return;
+    perp = scale(perp, 1 / lperp);
+    var d = (view.xMax - view.xMin) * 0.025;     // 方块边长(世界单位)
+    // 让方块朝向原点一侧(沿 -ub 与 perp)
+    var sgn = scalarProj(foot, b) >= 0 ? -1 : 1;
+    var c0 = foot;
+    var c1 = add(foot, scale(ub, sgn * d));
+    var c2 = add(c1, scale(perp, d));
+    var c3 = add(foot, scale(perp, d));
+    ctx.strokeStyle = getCss("--aux");
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(sx(c1.x), sy(c1.y));
+    ctx.lineTo(sx(c2.x), sy(c2.y));
+    ctx.lineTo(sx(c3.x), sy(c3.y));
+    ctx.stroke();
+  }
+
+  function updateDotPanel() {
+    var la = len(va), lb = len(vb);
+    var d = dot(va, vb);
+    var ang = angleBetween(va, vb);
+    var pa = scalarProj(va, vb);   // a 在 b 上
+    var pb = scalarProj(vb, va);   // b 在 a 上
+
+    setText("roA", "(" + fmt(va.x) + ", " + fmt(va.y) + ")");
+    setText("roB", "(" + fmt(vb.x) + ", " + fmt(vb.y) + ")");
+    setText("roLenA", fmt(la));
+    setText("roLenB", fmt(lb));
+    setText("roDot", fmt(d));
+    setText("roAngle", isNaN(ang) ? "—" : (fmt(ang * 180 / Math.PI) + "°"));
+    setText("roProjA", fmt(pa));
+    setText("roProjB", fmt(pb));
+  }
+
+  // ====================================================================
+  // 模式二:力的分解(沿斜面切向 / 法向两正交方向)
+  // ====================================================================
+  function drawForceMode() {
+    var a = slopeDeg * Math.PI / 180;
+    // 切向(沿斜面)单位向量,法向单位向量(逆时针 90°)
+    var uT = { x: Math.cos(a), y: Math.sin(a) };
+    var uN = { x: -Math.sin(a), y: Math.cos(a) };
+
+    // F 在切向、法向上的分量(标量,带符号)
+    var fT = dot(vF, uT);
+    var fN = dot(vF, uN);
+    var compT = scale(uT, fT);   // 切向分量向量
+    var compN = scale(uN, fN);   // 法向分量向量
+
+    // 1) 斜面参考线(切向轴,贯穿视窗)
+    var far = Math.max(view.xMax - view.xMin, view.yMax - view.yMin);
+    drawSeg(scale(uT, -far), scale(uT, far), getCss("--grid"), 1, [4, 4]);
+    drawSeg(scale(uN, -far), scale(uN, far), getCss("--grid"), 1, [4, 4]);
+
+    // 2) 画一个斜面三角形示意(从原点起,沿切向的底)
+    drawInclineHint(uT, a);
+
+    // 3) 平行四边形(矩形)辅助虚线:F = compT + compN
+    drawSeg(compT, vF, getCss("--aux"), 1.4, [6, 5]);
+    drawSeg(compN, vF, getCss("--aux"), 1.4, [6, 5]);
+
+    // 4) 两个分量(绿=切向,黄=法向)
+    if (Math.abs(fT) > 1e-6) drawArrow(O, compT, getCss("--comp1"), 4, 12);
+    if (Math.abs(fN) > 1e-6) drawArrow(O, compN, getCss("--comp2"), 4, 12);
+
+    // 5) 合力 F(紫色)
+    drawArrow(O, vF, getCss("--force"), 3.4, 14);
+
+    // 6) 把手
+    drawHandle(vF, getCss("--force"));
+
+    // 7) 标签
+    label(vF, "F", getCss("--force"), 8, -4, MATH_FONT);
+    if (Math.abs(fT) > 0.4) labelSub(scale(compT, 0.6), "F", "切", getCss("--comp1"), 4, 14);
+    if (Math.abs(fN) > 0.4) labelSub(scale(compN, 0.6), "F", "法", getCss("--comp2"), 6, 0);
+
+    updateForcePanel(fT, fN, a);
+  }
+
+  // 斜面三角形示意(纯几何抽象,非原题图)
+  function drawInclineHint(uT, a) {
+    var base = Math.min(view.xMax * 0.9, 3.2);
+    if (base < 0.5) return;
+    var apex = scale(uT, base);                 // 斜面顶点
+    var footG = { x: base * Math.cos(a), y: 0 };// 水平底边终点的投影点(直角点)
+    ctx.strokeStyle = getCss("--axis");
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(sx(0), sy(0));
+    ctx.lineTo(sx(footG.x), sy(footG.y));       // 水平底
+    ctx.lineTo(sx(apex.x), sy(apex.y));         // 斜面(切向)
+    ctx.closePath();
+    ctx.stroke();
+  }
+
+  function updateForcePanel(fT, fN, a) {
+    setText("roF", "(" + fmt(vF.x) + ", " + fmt(vF.y) + ")");
+    setText("roLenF", fmt(len(vF)));
+    setText("roSlope", fmt(slopeDeg) + "°");
+    var phi = angleBetween(vF, { x: Math.cos(a), y: Math.sin(a) });
+    setText("roPhi", isNaN(phi) ? "—" : (fmt(phi * 180 / Math.PI) + "°"));
+    setText("roComp1", fmt(fT));
+    setText("roComp2", fmt(fN));
+  }
+
+  // ====================================================================
+  // 主绘制
+  // ====================================================================
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    drawGrid();
+    if (mode === "dot") drawDotMode();
+    else drawForceMode();
+  }
+
+  // ====================================================================
+  // 工具
+  // ====================================================================
+  function fmt(v) {
+    if (!isFinite(v)) return "—";
+    var r = Math.round(v * 100) / 100;
+    if (Math.abs(r) < 1e-9) r = 0;
+    return r.toFixed(2).replace("-", "−");
+  }
+  function setText(id, t) { document.getElementById(id).textContent = t; }
+  var cssCache = {};
+  function getCss(name) {
+    if (cssCache[name]) return cssCache[name];
+    var v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    cssCache[name] = v; return v;
+  }
+
+  // ====================================================================
+  // 交互:拖动箭头端点
+  // ====================================================================
+  function pointerWorld(evt) {
+    var rect = canvas.getBoundingClientRect();
+    var clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+    var clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+    return { x: wx(clientX - rect.left), y: wy(clientY - rect.top) };
+  }
+  // 屏幕距离(像素)
+  function pxDist(p, w) {
+    var dx = sx(p.x) - sx(w.x), dy = sy(p.y) - sy(w.y);
+    return Math.sqrt(dx*dx + dy*dy);
+  }
+  function hitTest(w) {
+    var R = 20; // 命中半径(像素)
+    if (mode === "dot") {
+      if (pxDist(va, w) < R) return "a";
+      if (pxDist(vb, w) < R) return "b";
+    } else {
+      if (pxDist(vF, w) < R) return "F";
+    }
+    return null;
+  }
+  function applyDrag(w) {
+    // 限制在视窗内,避免拖出
+    var x = Math.max(view.xMin + 0.2, Math.min(view.xMax - 0.2, w.x));
+    var y = Math.max(view.yMin + 0.2, Math.min(view.yMax - 0.2, w.y));
+    if (dragging === "a") { va.x = x; va.y = y; }
+    else if (dragging === "b") { vb.x = x; vb.y = y; }
+    else if (dragging === "F") { vF.x = x; vF.y = y; }
+  }
+  function startDrag(evt) {
+    var w = pointerWorld(evt);
+    var hit = hitTest(w);
+    if (!hit) return;
+    dragging = hit;
+    canvas.classList.add("dragging");
+    applyDrag(w);
+    clearPresetHighlight();
+    draw();
+    evt.preventDefault();
+  }
+  function moveDrag(evt) {
+    if (!dragging) return;
+    applyDrag(pointerWorld(evt));
+    draw();
+    evt.preventDefault();
+  }
+  function endDrag() { dragging = null; canvas.classList.remove("dragging"); }
+
+  canvas.addEventListener("mousedown", startDrag);
+  window.addEventListener("mousemove", moveDrag);
+  window.addEventListener("mouseup", endDrag);
+  canvas.addEventListener("touchstart", startDrag, { passive: false });
+  canvas.addEventListener("touchmove", moveDrag, { passive: false });
+  window.addEventListener("touchend", endDrag);
+
+  // ====================================================================
+  // 模式切换
+  // ====================================================================
+  var btnDot = document.getElementById("modeDot");
+  var btnForce = document.getElementById("modeForce");
+  var dotPanel = document.getElementById("dotPanel");
+  var forcePanel = document.getElementById("forcePanel");
+  var subHint = document.getElementById("subHint");
+
+  function setMode(m) {
+    mode = m;
+    dragging = null;
+    var isDot = (m === "dot");
+    btnDot.classList.toggle("active", isDot);
+    btnForce.classList.toggle("active", !isDot);
+    dotPanel.classList.toggle("hidden", !isDot);
+    forcePanel.classList.toggle("hidden", isDot);
+    subHint.textContent = isDot
+      ? "拖动向量 a(绿)、b(黄)的箭头端点,观察点乘、夹角与 a 在 b 上的投影实时变化。"
+      : "拖动力 F(紫)的箭头端点,或调整斜面倾角 α,观察力沿斜面切向 / 法向的正交分解。";
+    draw();
+  }
+  btnDot.addEventListener("click", function () { setMode("dot"); });
+  btnForce.addEventListener("click", function () { setMode("force"); });
+
+  // ====================================================================
+  // 预设
+  // ====================================================================
+  var dotPresets = ["presetOrtho", "presetSame", "preset60", "presetObtuse"];
+  var forcePresets = ["presetIncline", "presetAxis", "presetSteep"];
+  function clearPresetHighlight() {
+    dotPresets.concat(forcePresets).forEach(function (id) {
+      var el = document.getElementById(id); if (el) el.classList.remove("active");
+    });
+  }
+  function setActive(id) { clearPresetHighlight(); document.getElementById(id).classList.add("active"); }
+
+  document.getElementById("presetOrtho").addEventListener("click", function () {
+    setActive("presetOrtho"); va = { x: 3, y: 0 }; vb = { x: 0, y: 4 }; draw();   // a·b = 0
+  });
+  document.getElementById("presetSame").addEventListener("click", function () {
+    setActive("presetSame"); va = { x: 4, y: 2 }; vb = { x: 2, y: 1 }; draw();    // 同向,θ=0
+  });
+  document.getElementById("preset60").addEventListener("click", function () {
+    setActive("preset60"); va = { x: 4, y: 0 }; vb = { x: 1.5, y: 2.598 }; draw();// b 与 x 轴 60°
+  });
+  document.getElementById("presetObtuse").addEventListener("click", function () {
+    setActive("presetObtuse"); va = { x: 3, y: 1 }; vb = { x: -3, y: 1 }; draw(); // 钝角,a·b<0
+  });
+
+  document.getElementById("presetIncline").addEventListener("click", function () {
+    setActive("presetIncline"); vF = { x: 1.0, y: -3.2 }; setSlope(30); draw();   // 类「重力沿斜面」示意
+  });
+  document.getElementById("presetAxis").addEventListener("click", function () {
+    setActive("presetAxis"); vF = { x: 3, y: 2 }; setSlope(0); draw();            // 沿 x/y 轴分解
+  });
+  document.getElementById("presetSteep").addEventListener("click", function () {
+    setActive("presetSteep"); vF = { x: 1.2, y: -3.0 }; setSlope(60); draw();
+  });
+
+  // ====================================================================
+  // 斜面倾角滑块
+  // ====================================================================
+  var sSlope = document.getElementById("sSlope");
+  function setSlope(deg) {
+    slopeDeg = deg;
+    sSlope.value = deg;
+    document.getElementById("numSlope").textContent = deg + "°";
+  }
+  sSlope.addEventListener("input", function () {
+    slopeDeg = parseInt(sSlope.value, 10);
+    document.getElementById("numSlope").textContent = slopeDeg + "°";
+    clearPresetHighlight();
+    draw();
+  });
+
+  // ====================================================================
+  // 启动
+  // ====================================================================
+  window.addEventListener("resize", resize);
+  resize();
+})();
+</script>
+</body>
+</html>

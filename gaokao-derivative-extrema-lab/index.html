@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>导数可视化实验室 · 切线 / 单调性 / 极值</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --panel: #1a212b;
+    --panel2: #232c38;
+    --ink: #e6edf3;
+    --muted: #93a1b1;
+    --accent: #4fc3f7;
+    --inc: #58d68d;      /* 单调递增 */
+    --dec: #ef7a85;      /* 单调递减 */
+    --tangent: #ffd166;  /* 切线 */
+    --maxpt: #ff6b6b;    /* 极大值 */
+    --minpt: #5dade2;    /* 极小值 */
+    --grid: #2a3441;
+    --axis: #5b6b7b;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    height: 100%;
+  }
+  .app {
+    display: flex;
+    flex-direction: row;
+    min-height: 100vh;
+  }
+  .stage {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    min-width: 0;
+  }
+  .stage h1 {
+    font-size: 18px;
+    margin: 0 0 4px 0;
+    font-weight: 600;
+  }
+  .stage .sub {
+    color: var(--muted);
+    font-size: 13px;
+    margin: 0 0 12px 0;
+  }
+  .canvas-wrap {
+    position: relative;
+    flex: 1 1 auto;
+    background: #0b0f14;
+    border: 1px solid var(--grid);
+    border-radius: 10px;
+    overflow: hidden;
+    min-height: 360px;
+  }
+  canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+  canvas.dragging { cursor: grabbing; }
+
+  .panel {
+    flex: 0 0 340px;
+    background: var(--panel);
+    border-left: 1px solid var(--grid);
+    padding: 18px;
+    overflow-y: auto;
+    max-height: 100vh;
+  }
+  .panel h2 {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    margin: 18px 0 8px;
+    border-bottom: 1px solid var(--grid);
+    padding-bottom: 6px;
+  }
+  .panel h2:first-child { margin-top: 0; }
+
+  .expr {
+    background: var(--panel2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: "Cambria Math", "Times New Roman", serif;
+    font-size: 17px;
+    margin: 6px 0;
+    line-height: 1.5;
+    word-break: break-word;
+  }
+  .expr .lbl { color: var(--accent); font-style: italic; }
+  /* MathML 中的函数名 f / f′ 沿用 accent 蓝色高亮 */
+  math .lbl { color: var(--accent); }
+
+  /* 内联 MathML 排版:浏览器原生,零依赖 */
+  math { font-size: 1.08em; vertical-align: -0.15em; }
+  .expr math { font-size: 1.12em; }
+  /* 行内变量(非 MathML 处)的统一斜体写法,消除 Unicode 上下标字形不一致 */
+  var { font-family: "Cambria Math", "Times New Roman", serif; font-style: italic; }
+  var sub, var sup { font-style: normal; }
+
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 8px 0;
+    font-size: 14px;
+  }
+  .row label { color: var(--muted); }
+  .row .val {
+    font-variant-numeric: tabular-nums;
+    font-family: "Consolas", monospace;
+    font-size: 14px;
+  }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .slider-row { margin: 12px 0; }
+  .slider-row .head {
+    display: flex; justify-content: space-between;
+    font-size: 13px; margin-bottom: 4px;
+  }
+  .slider-row .head .name { color: var(--ink); font-weight: 600; }
+  .slider-row .head .num {
+    font-family: "Consolas", monospace; color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .readout {
+    background: var(--panel2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: "Consolas", monospace;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  .readout .k { color: var(--muted); }
+  .readout .v { float: right; font-variant-numeric: tabular-nums; }
+  .swatch { display:inline-block; width:11px; height:11px; border-radius:3px; vertical-align:middle; margin-right:6px; }
+
+  .note {
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--muted);
+  }
+  .note b { color: var(--ink); }
+  .legend { font-size: 12.5px; line-height: 1.9; color: var(--muted); }
+
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  button {
+    background: var(--panel2);
+    color: var(--ink);
+    border: 1px solid var(--grid);
+    border-radius: 7px;
+    padding: 7px 11px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  button:hover { background: #2c3848; border-color: var(--accent); }
+  button.active { border-color: var(--accent); color: var(--accent); }
+
+  .compliance {
+    margin-top: 16px; font-size: 11.5px; color: #6b7886;
+    line-height: 1.6; border-top: 1px dashed var(--grid); padding-top: 10px;
+  }
+
+  @media (max-width: 860px) {
+    .app { flex-direction: column; }
+    .panel { flex-basis: auto; border-left: none; border-top: 1px solid var(--grid); max-height: none; }
+    .canvas-wrap { min-height: 300px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="stage">
+    <h1>导数可视化实验室 — 切线 · 单调性 · 极值</h1>
+    <p class="sub">拖动曲线上的黄点观察切线变化;拖动右侧滑块改变自绘抽象函数 <math><mrow><mi>f</mi><mo>(</mo><mi>x</mi><mo>)</mo><mo>=</mo><mi>a</mi><msup><mi>x</mi><mn>3</mn></msup><mo>+</mo><mi>b</mi><msup><mi>x</mi><mn>2</mn></msup><mo>+</mo><mi>c</mi><mi>x</mi><mo>+</mo><mi>d</mi></mrow></math> 的形状。</p>
+    <div class="canvas-wrap">
+      <canvas id="cv"></canvas>
+    </div>
+  </div>
+
+  <aside class="panel">
+    <h2>函数表达式</h2>
+    <div class="expr"><span id="exprF"></span></div>
+    <div class="expr"><span id="exprDf"></span></div>
+
+    <h2>当前点 <math><msub><mi>x</mi><mn>0</mn></msub></math>（拖动黄点）</h2>
+    <div class="readout">
+      <div><span class="k"><math><msub><mi>x</mi><mn>0</mn></msub></math></span><span class="v" id="roX">0.000</span></div>
+      <div><span class="k"><math><mrow><mi>f</mi><mo>(</mo><msub><mi>x</mi><mn>0</mn></msub><mo>)</mo></mrow></math>（函数值）</span><span class="v" id="roFx">0.000</span></div>
+      <div><span class="k"><math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><msub><mi>x</mi><mn>0</mn></msub><mo>)</mo></mrow></math>（切线斜率）</span><span class="v" id="roDfx">−3.000</span></div>
+      <div><span class="k">切线在该点的趋势</span><span class="v" id="roTrend">递减</span></div>
+    </div>
+
+    <h2>极值点（<math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><mi>x</mi><mo>)</mo><mo>=</mo><mn>0</mn></mrow></math>）</h2>
+    <div class="readout" id="extremaBox">
+      <div><span class="k"><span class="swatch" style="background:var(--maxpt)"></span>极大值</span><span class="v" id="roMax">—</span></div>
+      <div><span class="k"><span class="swatch" style="background:var(--minpt)"></span>极小值</span><span class="v" id="roMin">—</span></div>
+    </div>
+
+    <h2>调整函数参数</h2>
+    <div class="slider-row">
+      <div class="head"><span class="name">a（三次项）</span><span class="num" id="numA">1.00</span></div>
+      <input type="range" id="sA" min="-2" max="2" step="0.05" value="1">
+    </div>
+    <div class="slider-row">
+      <div class="head"><span class="name">b（二次项）</span><span class="num" id="numB">0.00</span></div>
+      <input type="range" id="sB" min="-3" max="3" step="0.05" value="0">
+    </div>
+    <div class="slider-row">
+      <div class="head"><span class="name">c（一次项）</span><span class="num" id="numC">-3.00</span></div>
+      <input type="range" id="sC" min="-6" max="6" step="0.05" value="-3">
+    </div>
+    <div class="slider-row">
+      <div class="head"><span class="name">d（常数项）</span><span class="num" id="numD">0.00</span></div>
+      <input type="range" id="sD" min="-5" max="5" step="0.05" value="0">
+    </div>
+    <div class="btn-row">
+      <button id="presetCubic" class="active">x³−3x</button>
+      <button id="presetW">双井形</button>
+      <button id="presetMono">恒增</button>
+      <button id="resetView">重置视图</button>
+    </div>
+
+    <h2>图例与说明</h2>
+    <div class="legend">
+      <span class="swatch" style="background:var(--inc)"></span>曲线<b style="color:var(--inc)">绿色段</b>:<math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><mi>x</mi><mo>)</mo><mo>&gt;</mo><mn>0</mn></mrow></math>,函数<b>单调递增</b><br>
+      <span class="swatch" style="background:var(--dec)"></span>曲线<b style="color:var(--dec)">红色段</b>:<math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><mi>x</mi><mo>)</mo><mo>&lt;</mo><mn>0</mn></mrow></math>,函数<b>单调递减</b><br>
+      <span class="swatch" style="background:var(--tangent)"></span>黄色直线:当前点处的<b>切线</b>,斜率 = <math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><msub><mi>x</mi><mn>0</mn></msub><mo>)</mo></mrow></math><br>
+      <span class="swatch" style="background:var(--maxpt)"></span>红点:<b>极大值</b>点(导数由正变负)<br>
+      <span class="swatch" style="background:var(--minpt)"></span>蓝点:<b>极小值</b>点(导数由负变正)
+    </div>
+
+    <h2>导数告诉我们什么</h2>
+    <p class="note">
+      导数 <b><math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><msub><mi>x</mi><mn>0</mn></msub><mo>)</mo></mrow></math></b> 的几何意义是曲线在点 <math><mrow><mo>(</mo><msub><mi>x</mi><mn>0</mn></msub><mo>,</mo><mi>f</mi><mo>(</mo><msub><mi>x</mi><mn>0</mn></msub><mo>)</mo><mo>)</mo></mrow></math> 处<b>切线的斜率</b>。<br>
+      · 当 <math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><mi>x</mi><mo>)</mo></mrow></math> <b>&gt; 0</b>,切线向上倾斜,函数在此<b>单调递增</b>(绿色)。<br>
+      · 当 <math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><mi>x</mi><mo>)</mo></mrow></math> <b>&lt; 0</b>,切线向下倾斜,函数在此<b>单调递减</b>(红色)。<br>
+      · 当 <math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><mi>x</mi><mo>)</mo></mrow></math> <b>= 0</b> 且左右符号改变,该点为<b>极值点</b>:由 + 变 − 是极大值,由 − 变 + 是极小值。
+    </p>
+
+    <div class="compliance">
+      合规声明:本 demo 仅使用<b>自绘抽象函数与可调参数</b>(三次多项式族)做概念可视化,
+      未复制任何高考原题文字、原卷图片或答案图,不是题目搬运。
+    </div>
+  </aside>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- 状态:自绘抽象函数 f(x) = a x^3 + b x^2 + c x + d ----------
+  var coef = { a: 1, b: 0, c: -3, d: 0 };
+  var x0 = 0;                 // 当前拖动点
+  // 世界坐标视窗(数学坐标范围),会随窗口比例自适应
+  var view = { xMin: -4, xMax: 4, yMin: -6, yMax: 6 };
+  var dragging = false;
+
+  var canvas = document.getElementById("cv");
+  var ctx = canvas.getContext("2d");
+  var DPR = Math.max(1, window.devicePixelRatio || 1);
+  var W = 0, H = 0;          // CSS 像素尺寸
+
+  // ---------- 数学 ----------
+  function f(x)  { return coef.a*x*x*x + coef.b*x*x + coef.c*x + coef.d; }
+  function df(x) { return 3*coef.a*x*x + 2*coef.b*x + coef.c; }          // f'(x)
+  function ddf(x){ return 6*coef.a*x + 2*coef.b; }                        // f''(x),用于判别极大/极小
+
+  // 求 f'(x)=0 的实根:3a x^2 + 2b x + c = 0
+  function criticalPoints() {
+    var A = 3*coef.a, B = 2*coef.b, C = coef.c;
+    var roots = [];
+    if (Math.abs(A) < 1e-9) {
+      // 退化为一次:Bx + C = 0
+      if (Math.abs(B) > 1e-9) roots.push(-C / B);
+    } else {
+      var disc = B*B - 4*A*C;
+      if (disc > 1e-9) {
+        var s = Math.sqrt(disc);
+        roots.push((-B - s) / (2*A));
+        roots.push((-B + s) / (2*A));
+      } else if (disc > -1e-9) {
+        roots.push(-B / (2*A)); // 重根(拐点处切线水平,非严格极值)
+      }
+    }
+    return roots;
+  }
+
+  // 把临界点分类为极大/极小(用 f'' 符号,二阶为 0 时回退到左右采样)
+  function classifyExtrema() {
+    var out = { maxima: [], minima: [] };
+    var roots = criticalPoints();
+    roots.forEach(function (r) {
+      var second = ddf(r);
+      var kind = null;
+      if (second < -1e-6) kind = "max";
+      else if (second > 1e-6) kind = "min";
+      else {
+        // f''≈0:用左右一阶导符号判断(避开重根的水平拐点)
+        var eps = 1e-3;
+        var l = df(r - eps), rr = df(r + eps);
+        if (l > 0 && rr < 0) kind = "max";
+        else if (l < 0 && rr > 0) kind = "min";
+      }
+      if (kind === "max") out.maxima.push({ x: r, y: f(r) });
+      if (kind === "min") out.minima.push({ x: r, y: f(r) });
+    });
+    return out;
+  }
+
+  // ---------- 坐标变换:世界 <-> 屏幕 ----------
+  function sx(x) { return (x - view.xMin) / (view.xMax - view.xMin) * W; }
+  function sy(y) { return H - (y - view.yMin) / (view.yMax - view.yMin) * H; }
+  function wx(px){ return view.xMin + px / W * (view.xMax - view.xMin); }
+
+  // 让坐标轴比例尽量协调:根据画布宽高比设定 y 范围
+  function fitView() {
+    var aspect = H / W;
+    var xRange = view.xMax - view.xMin;
+    var yRange = xRange * aspect;
+    var cy = (view.yMin + view.yMax) / 2;
+    view.yMin = cy - yRange / 2;
+    view.yMax = cy + yRange / 2;
+  }
+
+  function resize() {
+    var rect = canvas.parentElement.getBoundingClientRect();
+    W = rect.width; H = rect.height;
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    fitView();
+    draw();
+  }
+
+  // ---------- 绘制 ----------
+  function niceStep(range, targetTicks) {
+    var raw = range / targetTicks;
+    var mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    var norm = raw / mag;
+    var step;
+    if (norm < 1.5) step = 1; else if (norm < 3) step = 2; else if (norm < 7) step = 5; else step = 10;
+    return step * mag;
+  }
+
+  function drawGrid() {
+    var stepX = niceStep(view.xMax - view.xMin, 10);
+    var stepY = niceStep(view.yMax - view.yMin, 10);
+
+    ctx.lineWidth = 1;
+    ctx.font = "11px Consolas, monospace";
+    ctx.textBaseline = "top";
+
+    // 网格线
+    ctx.strokeStyle = getCss("--grid");
+    var startX = Math.ceil(view.xMin / stepX) * stepX;
+    for (var gx = startX; gx <= view.xMax; gx += stepX) {
+      var px = sx(gx);
+      ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, H); ctx.stroke();
+    }
+    var startY = Math.ceil(view.yMin / stepY) * stepY;
+    for (var gy = startY; gy <= view.yMax; gy += stepY) {
+      var py = sy(gy);
+      ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(W, py); ctx.stroke();
+    }
+
+    // 坐标轴
+    ctx.strokeStyle = getCss("--axis");
+    ctx.lineWidth = 1.5;
+    var y0 = sy(0), x0p = sx(0);
+    ctx.beginPath(); ctx.moveTo(0, y0); ctx.lineTo(W, y0); ctx.stroke();   // x 轴
+    ctx.beginPath(); ctx.moveTo(x0p, 0); ctx.lineTo(x0p, H); ctx.stroke(); // y 轴
+
+    // 刻度标签
+    ctx.fillStyle = getCss("--muted");
+    for (var lx = startX; lx <= view.xMax; lx += stepX) {
+      if (Math.abs(lx) < 1e-9) continue;
+      ctx.fillText(fmt(lx), sx(lx) + 2, y0 + 3);
+    }
+    ctx.textBaseline = "middle";
+    for (var ly = startY; ly <= view.yMax; ly += stepY) {
+      if (Math.abs(ly) < 1e-9) continue;
+      ctx.fillText(fmt(ly), x0p + 4, sy(ly));
+    }
+  }
+
+  // 按 f'(x) 符号分段着色画曲线(绿=增,红=减)
+  function drawCurveColored() {
+    var N = Math.max(200, Math.floor(W));
+    var prevPx = null, prevPy = null, prevSign = null;
+    ctx.lineWidth = 2.4;
+    ctx.lineJoin = "round";
+    for (var i = 0; i <= N; i++) {
+      var x = view.xMin + (view.xMax - view.xMin) * (i / N);
+      var y = f(x);
+      var px = sx(x), py = sy(y);
+      var sign = df(x) >= 0 ? 1 : -1;
+      if (prevPx !== null) {
+        ctx.strokeStyle = sign >= 0 ? getCss("--inc") : getCss("--dec");
+        ctx.beginPath();
+        ctx.moveTo(prevPx, prevPy);
+        ctx.lineTo(px, py);
+        ctx.stroke();
+      }
+      prevPx = px; prevPy = py; prevSign = sign;
+    }
+  }
+
+  function drawTangent() {
+    var y = f(x0), k = df(x0);
+    // 切线 y = k(x - x0) + y0,跨整个视窗画
+    var xL = view.xMin, xR = view.xMax;
+    var yL = k*(xL - x0) + y, yR = k*(xR - x0) + y;
+    ctx.strokeStyle = getCss("--tangent");
+    ctx.lineWidth = 1.8;
+    ctx.setLineDash([7, 5]);
+    ctx.beginPath();
+    ctx.moveTo(sx(xL), sy(yL));
+    ctx.lineTo(sx(xR), sy(yR));
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 拖动点
+    var px = sx(x0), py = sy(y);
+    ctx.fillStyle = getCss("--tangent");
+    ctx.strokeStyle = "#1a1200";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(px, py, 7, 0, Math.PI*2);
+    ctx.fill(); ctx.stroke();
+
+    // 点旁标注:变量名(x₀ / f′)用斜体衬线,与侧栏 MathML 字形一致;
+    // 数值用等宽,便于读数。分段绘制以混排两种字体(canvas 不支持 MathML)。
+    ctx.fillStyle = getCss("--ink");
+    ctx.textBaseline = "bottom";
+    ctx.textAlign = "left";
+    var cx = px + 11, cy = py - 9;
+    cx = drawSeg(cx, cy, "x₀", MATH_FONT_C);
+    cx = drawSeg(cx, cy, "=" + fmt(x0) + "  ", NUM_FONT_C);
+    cx = drawSeg(cx, cy, "f′", MATH_FONT_C);
+    cx = drawSeg(cx, cy, "=" + fmt(k), NUM_FONT_C);
+    ctx.textAlign = "left";
+  }
+  // 在 (x,y) 处按指定字体画一段文本,返回下一段的起始 x(用于混排字体)
+  function drawSeg(x, y, text, font) {
+    ctx.font = font;
+    ctx.fillText(text, x, y);
+    return x + ctx.measureText(text).width;
+  }
+  // canvas 内变量名的斜体衬线 / 数值等宽字体(与侧栏 MathML、读数面板风格一致)
+  var MATH_FONT_C = "italic 14px 'Cambria Math', 'Times New Roman', serif";
+  var NUM_FONT_C  = "12px Consolas, monospace";
+
+  function drawExtrema() {
+    var ex = classifyExtrema();
+    function dot(p, color, text) {
+      var px = sx(p.x), py = sy(p.y);
+      if (px < -20 || px > W+20 || py < -20 || py > H+20) return;
+      ctx.fillStyle = color;
+      ctx.strokeStyle = "#0b0f14";
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = color;
+      ctx.font = "12px 'Microsoft YaHei', sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      ctx.fillText(text + " (" + fmt(p.x) + ", " + fmt(p.y) + ")", px, py - 9);
+      ctx.textAlign = "left";
+    }
+    ex.maxima.forEach(function (p){ dot(p, getCss("--maxpt"), "极大值"); });
+    ex.minima.forEach(function (p){ dot(p, getCss("--minpt"), "极小值"); });
+    return ex;
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    drawGrid();
+    drawCurveColored();
+    var ex = drawExtrema();
+    drawTangent();
+    updatePanel(ex);
+  }
+
+  // ---------- 侧栏数值 ----------
+  function updatePanel(ex) {
+    document.getElementById("exprF").innerHTML = exprPoly();
+    document.getElementById("exprDf").innerHTML = exprDeriv();
+
+    document.getElementById("roX").textContent  = fmt(x0);
+    document.getElementById("roFx").textContent = fmt(f(x0));
+    var k = df(x0);
+    document.getElementById("roDfx").textContent = fmt(k);
+    var trend = k > 1e-6 ? "递增 ↑" : (k < -1e-6 ? "递减 ↓" : "水平 →（切线斜率为 0）");
+    document.getElementById("roTrend").textContent = trend;
+
+    document.getElementById("roMax").textContent = ex.maxima.length
+      ? ex.maxima.map(function(p){ return "x=" + fmt(p.x) + ", y=" + fmt(p.y); }).join("; ") : "无";
+    document.getElementById("roMin").textContent = ex.minima.length
+      ? ex.minima.map(function(p){ return "x=" + fmt(p.x) + ", y=" + fmt(p.y); }).join("; ") : "无";
+  }
+
+  // 把数值渲染成 MathML <mn>(负号已在符号处单独输出,这里只取量值;减号用 U+2212)
+  function mn(v) { return "<mn>" + fmt(v) + "</mn>"; }
+  // 把系数渲染成 MathML 多项式片段(省略 0 项、处理符号)
+  // sym 为该项的 MathML 变量部分(如 <msup><mi>x</mi><mn>3</mn></msup>);常数项为 ""
+  function term(coefVal, sym, isFirst) {
+    if (Math.abs(coefVal) < 1e-9) return "";
+    // 符号运算符:首项负号无前导加号,非首项用 + / −
+    var sign = coefVal >= 0
+      ? (isFirst ? "" : "<mo>+</mo>")
+      : (isFirst ? "<mo>−</mo>" : "<mo>−</mo>");
+    var mag = Math.abs(coefVal);
+    // 系数为 ±1 且带变量时省略数字
+    var num = (Math.abs(mag - 1) < 1e-9 && sym !== "") ? "" : mn(mag);
+    return sign + num + sym;
+  }
+  // 包裹成完整 <math> 行内公式;label 为前缀(如 f(x)= 的 MathML)
+  function wrapMath(label, body) {
+    return "<math><mrow>" + label + (body === "" ? "<mn>0</mn>" : body) + "</mrow></math>";
+  }
+  var X3 = "<msup><mi>x</mi><mn>3</mn></msup>";
+  var X2 = "<msup><mi>x</mi><mn>2</mn></msup>";
+  var X1 = "<mi>x</mi>";
+  // f(x) = 前缀(函数名 f 保留原 accent 蓝色高亮,与原 .lbl 一致)
+  var LBL_F  = "<mi class=\"lbl\">f</mi><mo>(</mo><mi>x</mi><mo>)</mo><mo>=</mo>";
+  // f'(x) = 前缀(撇号用 U+2032;f 保留 accent 蓝色)
+  var LBL_DF = "<msup><mi class=\"lbl\">f</mi><mo>′</mo></msup><mo>(</mo><mi>x</mi><mo>)</mo><mo>=</mo>";
+
+  function exprPoly() {
+    var seq = [
+      { v: coef.a, s: X3 },
+      { v: coef.b, s: X2 },
+      { v: coef.c, s: X1 },
+      { v: coef.d, s: "" }
+    ];
+    var first = true, body = "";
+    for (var i = 0; i < seq.length; i++) {
+      var t = term(seq[i].v, seq[i].s, first);
+      if (t) { body += t; first = false; }
+    }
+    return wrapMath(LBL_F, body);
+  }
+  function exprDeriv() {
+    // f'(x) = 3a x^2 + 2b x + c
+    var seq = [
+      { v: 3*coef.a, s: X2 },
+      { v: 2*coef.b, s: X1 },
+      { v: coef.c, s: "" }
+    ];
+    var first = true, body = "";
+    for (var i = 0; i < seq.length; i++) {
+      var t = term(seq[i].v, seq[i].s, first);
+      if (t) { body += t; first = false; }
+    }
+    return wrapMath(LBL_DF, body);
+  }
+
+  // ---------- 工具 ----------
+  function fmt(v) {
+    if (!isFinite(v)) return "—";
+    var r = Math.round(v * 1000) / 1000;
+    if (Math.abs(r) < 1e-9) r = 0;
+    return r.toFixed(Math.abs(r) < 10 ? 3 : 2).replace("-", "−");
+  }
+  var cssCache = {};
+  function getCss(name) {
+    if (cssCache[name]) return cssCache[name];
+    var v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    cssCache[name] = v; return v;
+  }
+
+  // ---------- 交互:拖动黄点 ----------
+  function pointerToX(evt) {
+    var rect = canvas.getBoundingClientRect();
+    var clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+    var px = clientX - rect.left;
+    return wx(px);
+  }
+  function nearPoint(evt) {
+    var rect = canvas.getBoundingClientRect();
+    var clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+    var clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+    var px = clientX - rect.left, py = clientY - rect.top;
+    var dx = px - sx(x0), dy = py - sy(f(x0));
+    return Math.sqrt(dx*dx + dy*dy) < 22;
+  }
+  function startDrag(evt) {
+    // 点击曲线附近任意处都可抓取并把 x0 移过去
+    dragging = true;
+    canvas.classList.add("dragging");
+    x0 = clamp(pointerToX(evt), view.xMin, view.xMax);
+    draw();
+    evt.preventDefault();
+  }
+  function moveDrag(evt) {
+    if (!dragging) return;
+    x0 = clamp(pointerToX(evt), view.xMin, view.xMax);
+    draw();
+    evt.preventDefault();
+  }
+  function endDrag() { dragging = false; canvas.classList.remove("dragging"); }
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+  canvas.addEventListener("mousedown", startDrag);
+  window.addEventListener("mousemove", moveDrag);
+  window.addEventListener("mouseup", endDrag);
+  canvas.addEventListener("touchstart", startDrag, { passive: false });
+  canvas.addEventListener("touchmove", moveDrag, { passive: false });
+  window.addEventListener("touchend", endDrag);
+
+  // ---------- 滑块 ----------
+  function bindSlider(id, key, numId) {
+    var el = document.getElementById(id);
+    el.addEventListener("input", function () {
+      coef[key] = parseFloat(el.value);
+      document.getElementById(numId).textContent = parseFloat(el.value).toFixed(2);
+      clearPreset();
+      draw();
+    });
+  }
+  bindSlider("sA", "a", "numA");
+  bindSlider("sB", "b", "numB");
+  bindSlider("sC", "c", "numC");
+  bindSlider("sD", "d", "numD");
+
+  function setCoef(a, b, c, d) {
+    coef.a = a; coef.b = b; coef.c = c; coef.d = d;
+    document.getElementById("sA").value = a; document.getElementById("numA").textContent = a.toFixed(2);
+    document.getElementById("sB").value = b; document.getElementById("numB").textContent = b.toFixed(2);
+    document.getElementById("sC").value = c; document.getElementById("numC").textContent = c.toFixed(2);
+    document.getElementById("sD").value = d; document.getElementById("numD").textContent = d.toFixed(2);
+    draw();
+  }
+
+  // ---------- 预设 ----------
+  var presetBtns = ["presetCubic", "presetW", "presetMono"];
+  function clearPreset() { presetBtns.forEach(function(id){ document.getElementById(id).classList.remove("active"); }); }
+  function setActive(id) { clearPreset(); document.getElementById(id).classList.add("active"); }
+
+  document.getElementById("presetCubic").addEventListener("click", function () {
+    setActive("presetCubic"); setCoef(1, 0, -3, 0); x0 = 0; draw();
+  });
+  document.getElementById("presetW").addEventListener("click", function () {
+    // 形似双井的三次:有明显极大极小
+    setActive("presetW"); setCoef(0.5, 0, -2, 0); x0 = -1; draw();
+  });
+  document.getElementById("presetMono").addEventListener("click", function () {
+    // 恒增:f'(x)=3x²+1>0 无极值,全程绿色
+    setActive("presetMono"); setCoef(1, 0, 1, 0); x0 = 0; draw();
+  });
+  document.getElementById("resetView").addEventListener("click", function () {
+    view.xMin = -4; view.xMax = 4; view.yMin = -6; view.yMax = 6;
+    fitView(); draw();
+  });
+
+  // ---------- 启动 ----------
+  window.addEventListener("resize", resize);
+  resize();
+})();
+</script>
+</body>
+</html>

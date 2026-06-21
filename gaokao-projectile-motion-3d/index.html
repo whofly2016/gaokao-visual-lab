@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>抛体运动可视化实验室 · 速度分解 / 轨迹 / 落点预测</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --panel: #1a212b;
+    --panel2: #232c38;
+    --ink: #e6edf3;
+    --muted: #93a1b1;
+    --accent: #4fc3f7;
+    --traj: #ffd166;     /* 抛物线轨迹 */
+    --vx: #58d68d;       /* 水平分量(匀速) */
+    --vy: #ef7a85;       /* 竖直分量(匀变速) */
+    --vfull: #4fc3f7;    /* 合速度 */
+    --ball: #ffd166;     /* 抛体小球 */
+    --land: #ff6b6b;     /* 落地点 */
+    --apex: #c792ea;     /* 最高点 */
+    --grid: #2a3441;
+    --ground: #3a4a5a;   /* 地面网格 */
+    --axis: #5b6b7b;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    height: 100%;
+  }
+  .app {
+    display: flex;
+    flex-direction: row;
+    min-height: 100vh;
+  }
+  .stage {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    min-width: 0;
+  }
+  .stage h1 {
+    font-size: 18px;
+    margin: 0 0 4px 0;
+    font-weight: 600;
+  }
+  .stage .sub {
+    color: var(--muted);
+    font-size: 13px;
+    margin: 0 0 12px 0;
+  }
+  .canvas-wrap {
+    position: relative;
+    flex: 1 1 auto;
+    background: #0b0f14;
+    border: 1px solid var(--grid);
+    border-radius: 10px;
+    overflow: hidden;
+    min-height: 380px;
+  }
+  canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+  canvas.dragging { cursor: grabbing; }
+
+  .panel {
+    flex: 0 0 348px;
+    background: var(--panel);
+    border-left: 1px solid var(--grid);
+    padding: 18px;
+    overflow-y: auto;
+    max-height: 100vh;
+  }
+  .panel h2 {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    margin: 18px 0 8px;
+    border-bottom: 1px solid var(--grid);
+    padding-bottom: 6px;
+  }
+  .panel h2:first-child { margin-top: 0; }
+
+  .expr {
+    background: var(--panel2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: "Cambria Math", "Times New Roman", serif;
+    font-size: 15.5px;
+    margin: 6px 0;
+    line-height: 1.55;
+    word-break: break-word;
+  }
+  .expr .lbl { color: var(--accent); font-style: italic; }
+  /* 内联 MathML(浏览器原生,零依赖):与中文行文协调 */
+  math { font-size: 1.06em; vertical-align: -0.05em; }
+  .expr math { display: inline-block; }
+  .expr math + math { margin-left: 4px; }
+  .readout math, .legend math, .note math { font-size: 1.0em; }
+
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .slider-row { margin: 12px 0; }
+  .slider-row .head {
+    display: flex; justify-content: space-between;
+    font-size: 13px; margin-bottom: 4px;
+  }
+  .slider-row .head .name { color: var(--ink); font-weight: 600; }
+  .slider-row .head .num {
+    font-family: "Consolas", monospace; color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .readout {
+    background: var(--panel2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: "Consolas", monospace;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  .readout .k { color: var(--muted); }
+  .readout .v { float: right; font-variant-numeric: tabular-nums; }
+  .swatch { display:inline-block; width:11px; height:11px; border-radius:3px; vertical-align:middle; margin-right:6px; }
+
+  .note {
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--muted);
+  }
+  .note b { color: var(--ink); }
+  .legend { font-size: 12.5px; line-height: 1.95; color: var(--muted); }
+
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  button {
+    background: var(--panel2);
+    color: var(--ink);
+    border: 1px solid var(--grid);
+    border-radius: 7px;
+    padding: 7px 11px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  button:hover { background: #2c3848; border-color: var(--accent); }
+  button.active { border-color: var(--accent); color: var(--accent); }
+  button.play { min-width: 78px; }
+
+  .compliance {
+    margin-top: 16px; font-size: 11.5px; color: #6b7886;
+    line-height: 1.6; border-top: 1px dashed var(--grid); padding-top: 10px;
+  }
+
+  @media (max-width: 880px) {
+    .app { flex-direction: column; }
+    .panel { flex-basis: auto; border-left: none; border-top: 1px solid var(--grid); max-height: none; }
+    .canvas-wrap { min-height: 320px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="stage">
+    <h1>抛体运动可视化实验室 — 速度分解 · 轨迹 · 落点预测</h1>
+    <p class="sub">伪 3D 透视场景:小球从发射点沿抛物线飞行。拖动轨迹上的橙点(或拖时间滑块)查看任意时刻的速度分解;右侧滑块改变发射条件。</p>
+    <div class="canvas-wrap">
+      <canvas id="cv"></canvas>
+    </div>
+  </div>
+
+  <aside class="panel">
+    <h2>运动方程(自绘抽象模型)</h2>
+    <div class="expr">水平(匀速):<br>
+      <math xmlns="http://www.w3.org/1998/Math/MathML">
+        <mrow>
+          <mi>x</mi><mo>(</mo><mi>t</mi><mo>)</mo><mo>=</mo>
+          <msub><mi>v</mi><mn>0</mn></msub><mo>&#x22C5;</mo><mi>cos</mi><mi>&#x3B8;</mi>
+          <mo>&#x22C5;</mo><mi>t</mi>
+        </mrow>
+      </math>
+    </div>
+    <div class="expr">竖直(匀变速):<br>
+      <math xmlns="http://www.w3.org/1998/Math/MathML">
+        <mrow>
+          <mi>y</mi><mo>(</mo><mi>t</mi><mo>)</mo><mo>=</mo>
+          <msub><mi>h</mi><mn>0</mn></msub><mo>+</mo>
+          <msub><mi>v</mi><mn>0</mn></msub><mo>&#x22C5;</mo><mi>sin</mi><mi>&#x3B8;</mi><mo>&#x22C5;</mo><mi>t</mi>
+          <mo>&#x2212;</mo>
+          <mfrac><mn>1</mn><mn>2</mn></mfrac>
+          <mi>g</mi><msup><mi>t</mi><mn>2</mn></msup>
+        </mrow>
+      </math>
+    </div>
+    <div class="expr">
+      <math xmlns="http://www.w3.org/1998/Math/MathML">
+        <mrow>
+          <msub><mi>v</mi><mi>x</mi></msub><mo>=</mo>
+          <msub><mi>v</mi><mn>0</mn></msub><mo>&#x22C5;</mo><mi>cos</mi><mi>&#x3B8;</mi>
+        </mrow>
+      </math>(恒定) &nbsp;
+      <math xmlns="http://www.w3.org/1998/Math/MathML">
+        <mrow>
+          <msub><mi>v</mi><mi>y</mi></msub><mo>=</mo>
+          <msub><mi>v</mi><mn>0</mn></msub><mo>&#x22C5;</mo><mi>sin</mi><mi>&#x3B8;</mi>
+          <mo>&#x2212;</mo><mi>g</mi><mi>t</mi>
+        </mrow>
+      </math>
+    </div>
+
+    <h2>当前时刻 t(拖橙点 / 滑块)</h2>
+    <div class="slider-row">
+      <div class="head"><span class="name">时间 t</span><span class="num" id="numT">0.00 s</span></div>
+      <input type="range" id="sT" min="0" max="1" step="0.001" value="0">
+    </div>
+    <div class="readout">
+      <div><span class="k">位置 (x, y)</span><span class="v" id="roPos">—</span></div>
+      <div><span class="k"><span class="swatch" style="background:var(--vx)"></span>水平分量 <math xmlns="http://www.w3.org/1998/Math/MathML"><msub><mi>v</mi><mi>x</mi></msub></math></span><span class="v" id="roVx">—</span></div>
+      <div><span class="k"><span class="swatch" style="background:var(--vy)"></span>竖直分量 <math xmlns="http://www.w3.org/1998/Math/MathML"><msub><mi>v</mi><mi>y</mi></msub></math></span><span class="v" id="roVy">—</span></div>
+      <div><span class="k"><span class="swatch" style="background:var(--vfull)"></span>合速度 <math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mo>|</mo><mi>v</mi><mo>|</mo></mrow></math></span><span class="v" id="roV">—</span></div>
+      <div><span class="k">速度方向(与水平)</span><span class="v" id="roAng">—</span></div>
+    </div>
+
+    <h2>落点预测与轨迹特征</h2>
+    <div class="readout">
+      <div><span class="k"><span class="swatch" style="background:var(--land)"></span>飞行时间 T</span><span class="v" id="roT">—</span></div>
+      <div><span class="k"><span class="swatch" style="background:var(--land)"></span>水平射程 R</span><span class="v" id="roR">—</span></div>
+      <div><span class="k"><span class="swatch" style="background:var(--apex)"></span>最大高度 H</span><span class="v" id="roH">—</span></div>
+      <div><span class="k">落地速度 <math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mo>|</mo><mi>v</mi><mo>|</mo></mrow></math></span><span class="v" id="roVland">—</span></div>
+    </div>
+    <div class="expr">
+      <math xmlns="http://www.w3.org/1998/Math/MathML">
+        <mrow>
+          <mi>T</mi><mo>=</mo>
+          <mfrac>
+            <mrow>
+              <msub><mi>v</mi><mn>0</mn></msub><mi>sin</mi><mi>&#x3B8;</mi><mo>+</mo>
+              <msqrt>
+                <mrow>
+                  <msup>
+                    <mrow><mo>(</mo><msub><mi>v</mi><mn>0</mn></msub><mi>sin</mi><mi>&#x3B8;</mi><mo>)</mo></mrow>
+                    <mn>2</mn>
+                  </msup>
+                  <mo>+</mo><mn>2</mn><mi>g</mi><mo>&#x22C5;</mo><msub><mi>h</mi><mn>0</mn></msub>
+                </mrow>
+              </msqrt>
+            </mrow>
+            <mi>g</mi>
+          </mfrac>
+        </mrow>
+      </math>
+    </div>
+    <div class="expr">
+      <math xmlns="http://www.w3.org/1998/Math/MathML">
+        <mrow>
+          <mi>R</mi><mo>=</mo>
+          <msub><mi>v</mi><mn>0</mn></msub><mi>cos</mi><mi>&#x3B8;</mi><mo>&#x22C5;</mo><mi>T</mi>
+        </mrow>
+      </math>
+      &nbsp;&nbsp;
+      <math xmlns="http://www.w3.org/1998/Math/MathML">
+        <mrow>
+          <mi>H</mi><mo>=</mo>
+          <msub><mi>h</mi><mn>0</mn></msub><mo>+</mo>
+          <mfrac>
+            <msup>
+              <mrow><mo>(</mo><msub><mi>v</mi><mn>0</mn></msub><mi>sin</mi><mi>&#x3B8;</mi><mo>)</mo></mrow>
+              <mn>2</mn>
+            </msup>
+            <mrow><mn>2</mn><mi>g</mi></mrow>
+          </mfrac>
+        </mrow>
+      </math>
+    </div>
+
+    <h2>发射条件(滑块)</h2>
+    <div class="slider-row">
+      <div class="head"><span class="name">初速度 v₀ (m/s)</span><span class="num" id="numV0">20.0</span></div>
+      <input type="range" id="sV0" min="2" max="40" step="0.5" value="20">
+    </div>
+    <div class="slider-row">
+      <div class="head"><span class="name">抛射角 θ (°)</span><span class="num" id="numTh">45</span></div>
+      <input type="range" id="sTh" min="0" max="90" step="1" value="45">
+    </div>
+    <div class="slider-row">
+      <div class="head"><span class="name">重力加速度 g (m/s²)</span><span class="num" id="numG">9.8</span></div>
+      <input type="range" id="sG" min="1.6" max="20" step="0.1" value="9.8">
+    </div>
+    <div class="slider-row">
+      <div class="head"><span class="name">初始高度 h₀ (m)</span><span class="num" id="numH0">0.0</span></div>
+      <input type="range" id="sH0" min="0" max="40" step="0.5" value="0">
+    </div>
+
+    <h2>预设 / 动画</h2>
+    <div class="btn-row">
+      <button id="presetFlat">平抛 (θ=0)</button>
+      <button id="preset45" class="active">斜抛 45°</button>
+      <button id="presetHigh">大角度 75°</button>
+    </div>
+    <div class="btn-row">
+      <button id="presetMoon">低重力 (g=1.6)</button>
+      <button id="btnPlay" class="play">▶ 播放</button>
+      <button id="btnReset">重置视图</button>
+    </div>
+
+    <h2>图例</h2>
+    <div class="legend">
+      <span class="swatch" style="background:var(--traj)"></span>黄色弧线:<b style="color:var(--traj)">抛物线轨迹</b>(合运动)<br>
+      <span class="swatch" style="background:var(--vx)"></span>绿色箭头:<b style="color:var(--vx)">水平分量 <math xmlns="http://www.w3.org/1998/Math/MathML"><msub><mi>v</mi><mi>x</mi></msub></math></b>,大小不变 → 匀速<br>
+      <span class="swatch" style="background:var(--vy)"></span>红色箭头:<b style="color:var(--vy)">竖直分量 <math xmlns="http://www.w3.org/1998/Math/MathML"><msub><mi>v</mi><mi>y</mi></msub></math></b>,随时间变 → 匀变速<br>
+      <span class="swatch" style="background:var(--vfull)"></span>蓝色箭头:<b style="color:var(--vfull)">合速度 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>v</mi></math></b>,与轨迹相切<br>
+      <span class="swatch" style="background:var(--apex)"></span>紫点:<b style="color:var(--apex)">最高点</b> &nbsp;
+      <span class="swatch" style="background:var(--land)"></span>红点:<b style="color:var(--land)">落地点</b>
+    </div>
+
+    <h2>抛体运动告诉我们什么</h2>
+    <p class="note">
+      抛体运动可<b>分解为两个独立的直线运动</b>:<br>
+      · <b>水平方向</b>:不受力(忽略空气阻力),做<b>匀速直线运动</b>,<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><msub><mi>v</mi><mi>x</mi></msub><mo>=</mo><msub><mi>v</mi><mn>0</mn></msub><mi>cos</mi><mi>&#x3B8;</mi></mrow></math> 始终不变(绿色箭头长度恒定)。<br>
+      · <b>竖直方向</b>:只受重力,做<b>匀变速运动</b>,<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><msub><mi>v</mi><mi>y</mi></msub><mo>=</mo><msub><mi>v</mi><mn>0</mn></msub><mi>sin</mi><mi>&#x3B8;</mi><mo>&#x2212;</mo><mi>g</mi><mi>t</mi></mrow></math> 随时间均匀改变(红色箭头先缩短、过最高点后反向增长)。<br>
+      · 两个分运动<b>合成</b>出来的轨迹,就是一条<b>抛物线</b>。这就是「运动的合成与分解」。
+    </p>
+
+    <div class="compliance">
+      合规声明:本 demo 仅使用<b>自绘抽象参数与运动学模型</b>(参数化抛物线轨迹)做概念可视化,
+      未复制任何高考原题文字、原卷图片或答案图,不是题目搬运。
+    </div>
+  </aside>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- 状态:发射条件(自绘抽象参数) ----------
+  var P = { v0: 20, theta: 45, g: 9.8, h0: 0 };   // 抛射角单位:度
+  var t = 0;                 // 当前时刻 s(0 ~ 飞行时间 T)
+  var playing = false;
+  var lastFrame = 0;
+  var dragging = false;
+
+  var canvas = document.getElementById("cv");
+  var ctx = canvas.getContext("2d");
+  var DPR = Math.max(1, window.devicePixelRatio || 1);
+  var W = 0, H = 0;          // CSS 像素尺寸
+
+  // ---------- 运动学(自绘抽象模型) ----------
+  // x(t)=v0 cosθ t ; y(t)=h0 + v0 sinθ t - 0.5 g t^2
+  function rad(d) { return d * Math.PI / 180; }
+  function vx0() { return P.v0 * Math.cos(rad(P.theta)); }   // 水平分量(恒定)
+  function vy0() { return P.v0 * Math.sin(rad(P.theta)); }   // 初始竖直分量
+  function posX(tt) { return vx0() * tt; }
+  function posY(tt) { return P.h0 + vy0() * tt - 0.5 * P.g * tt * tt; }
+  function velY(tt) { return vy0() - P.g * tt; }             // 竖直分量(匀变速)
+
+  // 飞行时间 T:解 h0 + vy0 t - 0.5 g t^2 = 0 取正根
+  function flightTime() {
+    var a = 0.5 * P.g, b = -vy0(), c = -P.h0;
+    var disc = b * b - 4 * a * c;
+    if (disc < 0) return 0;
+    return (-b + Math.sqrt(disc)) / (2 * a);
+  }
+  function range()  { return vx0() * flightTime(); }
+  // 最高点:vy=0 在 t_top=vy0/g;若初速向下/水平(vy0<=0)则最高点即起点
+  function topTime() { return Math.max(0, vy0() / P.g); }
+  function maxHeight() {
+    var tt = topTime();
+    return P.h0 + vy0() * tt - 0.5 * P.g * tt * tt;
+  }
+  function speedAt(tt) {
+    var vyy = velY(tt), vxx = vx0();
+    return Math.sqrt(vxx * vxx + vyy * vyy);
+  }
+
+  // ---------- 世界坐标系 ----------
+  // 世界三轴:X = 水平射程方向(向前进入画面纵深,0..Xmax);Y = 竖直高度(向上,0..Ymax);
+  // Z = 横向(左右,-Zhalf..Zhalf)。抛体在 Z=0 的竖直平面内运动;地面是 Y=0 的水平面。
+  var world = { Xmax: 50, Ymax: 30, Zhalf: 14 };  // 视窗世界范围(随参数自适应)
+
+  function fitWorld() {
+    var R = range(), H1 = maxHeight();
+    world.Xmax = Math.max(12, R * 1.15);
+    world.Ymax = Math.max(8, H1 * 1.30);
+    world.Zhalf = Math.max(6, world.Xmax * 0.22);
+  }
+
+  // ---------- 伪 3D 轴测投影 ----------
+  // 用斜二测/轴测:每个世界轴对应一个固定的屏幕方向向量(不随深度收缩,稳定清晰)。
+  //   X 轴(射程,进纵深) → 屏幕右上方
+  //   Z 轴(横向)        → 屏幕右下方(与 X 对称,地面铺成菱形)
+  //   Y 轴(高度)        → 屏幕正上方
+  var DEPTH = 26 * Math.PI / 180;                 // 纵深俯角
+  var ax = { x: Math.cos(DEPTH),  y: -Math.sin(DEPTH) };   // X 屏幕方向
+  var az = { x: Math.cos(DEPTH),  y:  Math.sin(DEPTH) };   // Z 屏幕方向
+  var ay = { x: 0,                y: -1 };                  // Y 屏幕方向(向上)
+  var cam = { ox: 0, oy: 0, scale: 1 };
+
+  // 归一化投影坐标(scale=1, 原点在 0);屏幕坐标 = 归一化 * scale + (ox, oy)
+  function projRaw(X, Y, Z) {
+    return {
+      x: X * ax.x + Z * az.x + Y * ay.x,
+      y: X * ax.y + Z * az.y + Y * ay.y,
+      f: 1
+    };
+  }
+
+  function recalcCam() {
+    // 量整个场景(地面四角 + 竖直平面顶边 + 轨迹弧线)的归一化包围盒,
+    // 据此求 scale 与平移,保证任意参数下自动铺满并居中。
+    var pad = 0.07;
+    var pts = [
+      projRaw(0, 0, -world.Zhalf), projRaw(0, 0, world.Zhalf),
+      projRaw(world.Xmax, 0, -world.Zhalf), projRaw(world.Xmax, 0, world.Zhalf),
+      projRaw(0, world.Ymax, 0), projRaw(world.Xmax, world.Ymax, 0)
+    ];
+    var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    pts.forEach(function (p) {
+      if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+      if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
+    });
+    var bw = (maxX - minX) || 1, bh = (maxY - minY) || 1;
+    cam.scale = Math.min((W * (1 - 2 * pad)) / bw, (H * (1 - 2 * pad)) / bh);
+    var cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+    cam.ox = W / 2 - cx * cam.scale;
+    cam.oy = H / 2 - cy * cam.scale;
+  }
+
+  function project(X, Y, Z) {
+    var u = projRaw(X, Y, Z);
+    return { x: cam.ox + u.x * cam.scale, y: cam.oy + u.y * cam.scale, f: 1 };
+  }
+
+  function resize() {
+    var rect = canvas.parentElement.getBoundingClientRect();
+    W = rect.width; H = rect.height;
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    fitWorld();
+    recalcCam();
+    draw();
+  }
+
+  // ---------- 绘制:地面网格(透视) ----------
+  function drawGround() {
+    var stepX = niceStep(world.Xmax, 8);
+    var stepZ = niceStep(world.Zhalf * 2, 8);
+
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = getCss("--ground");
+
+    // 沿 X(纵深)方向的线:固定 Z,X 从 0 到 Xmax
+    for (var z = -world.Zhalf; z <= world.Zhalf + 1e-6; z += stepZ) {
+      var p0 = project(0, 0, z), p1 = project(world.Xmax, 0, z);
+      ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke();
+    }
+    // 沿 Z(横向)方向的线:固定 X,Z 从 -Zhalf 到 Zhalf
+    for (var x = 0; x <= world.Xmax + 1e-6; x += stepX) {
+      var q0 = project(x, 0, -world.Zhalf), q1 = project(x, 0, world.Zhalf);
+      ctx.beginPath(); ctx.moveTo(q0.x, q0.y); ctx.lineTo(q1.x, q1.y); ctx.stroke();
+    }
+
+    // 抛体运动所在的竖直平面(Z=0)上的浅参考网格 + 竖直高度轴
+    ctx.strokeStyle = getCss("--grid");
+    ctx.lineWidth = 1;
+    var stepY = niceStep(world.Ymax, 6);
+    for (var yy = 0; yy <= world.Ymax + 1e-6; yy += stepY) {
+      var r0 = project(0, yy, 0), r1 = project(world.Xmax, yy, 0);
+      ctx.beginPath(); ctx.moveTo(r0.x, r0.y); ctx.lineTo(r1.x, r1.y); ctx.stroke();
+    }
+
+    // 坐标轴:射程方向 X 轴(地面中线)与竖直 Y 轴
+    ctx.strokeStyle = getCss("--axis");
+    ctx.lineWidth = 1.6;
+    var ax0 = project(0, 0, 0), ax1 = project(world.Xmax, 0, 0);
+    ctx.beginPath(); ctx.moveTo(ax0.x, ax0.y); ctx.lineTo(ax1.x, ax1.y); ctx.stroke();
+    var ay0 = project(0, 0, 0), ay1 = project(0, world.Ymax, 0);
+    ctx.beginPath(); ctx.moveTo(ay0.x, ay0.y); ctx.lineTo(ay1.x, ay1.y); ctx.stroke();
+
+    // 轴标签
+    ctx.fillStyle = getCss("--muted");
+    ctx.font = "11px Consolas, monospace";
+    ctx.textBaseline = "top"; ctx.textAlign = "center";
+    for (var lx = stepX; lx <= world.Xmax - stepX * 0.4; lx += stepX) {
+      var lp = project(lx, 0, 0);
+      ctx.fillText(fmt(lx), lp.x, lp.y + 3);
+    }
+    ctx.textBaseline = "middle"; ctx.textAlign = "right";
+    for (var ly = stepY; ly <= world.Ymax - stepY * 0.4; ly += stepY) {
+      var lq = project(0, ly, 0);
+      ctx.fillText(fmt(ly), lq.x - 5, lq.y);
+    }
+    // 轴标签:变量名 x / y 斜体衬线(与公式块一致),中文与单位用无衬线
+    ctx.textAlign = "left"; ctx.textBaseline = "bottom";
+    ctx.fillStyle = getCss("--axis");
+    var CN_FONT = "12px 'Microsoft YaHei', sans-serif";
+    var AX_VAR  = "italic 13px 'Cambria Math', 'Times New Roman', serif";
+    var lxp = drawSeg(ax1.x - 4, ax1.y - 6, "水平距离 ", CN_FONT);
+    lxp = drawSeg(lxp, ax1.y - 6, "x", AX_VAR);
+    drawSeg(lxp, ax1.y - 6, " / m", CN_FONT);
+    var lyp = drawSeg(ay1.x + 6, ay1.y + 4, "高度 ", CN_FONT);
+    lyp = drawSeg(lyp, ay1.y + 4, "y", AX_VAR);
+    drawSeg(lyp, ay1.y + 4, " / m", CN_FONT);
+  }
+
+  // ---------- 绘制:轨迹 ----------
+  function drawTrajectory() {
+    var T = flightTime();
+    if (T <= 0) return;
+    var N = 160;
+    ctx.strokeStyle = getCss("--traj");
+    ctx.lineWidth = 2.4;
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    for (var i = 0; i <= N; i++) {
+      var tt = T * (i / N);
+      var p = project(posX(tt), posY(tt), 0);
+      if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+
+    // 轨迹在地面的投影(虚线"影子"),强化落点与纵深感
+    ctx.strokeStyle = "rgba(255,209,102,0.25)";
+    ctx.lineWidth = 1.4;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    for (var j = 0; j <= N; j++) {
+      var tj = T * (j / N);
+      var ps = project(posX(tj), 0, 0);
+      if (j === 0) ctx.moveTo(ps.x, ps.y); else ctx.lineTo(ps.x, ps.y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // 画一个带箭头的矢量(世界平面 Z=0 内,从世界点(X,Y)出发,沿屏幕方向 dx,dy)
+  function drawArrowScreen(sx0, sy0, sx1, sy1, color, width) {
+    ctx.strokeStyle = color; ctx.fillStyle = color;
+    ctx.lineWidth = width;
+    ctx.beginPath(); ctx.moveTo(sx0, sy0); ctx.lineTo(sx1, sy1); ctx.stroke();
+    var ang = Math.atan2(sy1 - sy0, sx1 - sx0);
+    var head = 9;
+    ctx.beginPath();
+    ctx.moveTo(sx1, sy1);
+    ctx.lineTo(sx1 - head * Math.cos(ang - 0.4), sy1 - head * Math.sin(ang - 0.4));
+    ctx.lineTo(sx1 - head * Math.cos(ang + 0.4), sy1 - head * Math.sin(ang + 0.4));
+    ctx.closePath(); ctx.fill();
+  }
+
+  // ---------- 绘制:当前时刻的小球 + 速度分解 ----------
+  function drawBallAndVectors() {
+    var X = posX(t), Y = posY(t);
+    var ball = project(X, Y, 0);
+
+    // 速度分量(世界单位 m/s):vₓ 沿世界 X 轴(屏幕方向 ax),vᵧ 沿世界 Y 轴(屏幕方向 ay)
+    var vxx = vx0(), vyy = velY(t);
+    // 矢量缩放 k:把 m/s 映射成屏幕像素长度,按 v₀ 量级归一,避免箭头过长
+    var k = (cam.scale * 0.85) / Math.max(1, P.v0 / 14);
+
+    // 水平分量末端(沿 ax 方向)
+    var px_vx = ball.x + ax.x * vxx * k, py_vx = ball.y + ax.y * vxx * k;
+    // 竖直分量末端(沿 ay 方向;vyy 可正可负 → 向上或向下)
+    var px_vy = ball.x + ay.x * vyy * k, py_vy = ball.y + ay.y * vyy * k;
+    // 合速度末端 = 两分量矢量相加(平行四边形法则)
+    var px_v = ball.x + (ax.x * vxx + ay.x * vyy) * k;
+    var py_v = ball.y + (ax.y * vxx + ay.y * vyy) * k;
+
+    // 平行四边形辅助虚线(从各分量末端连到合矢量末端,直观展示合成)
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = "rgba(255,255,255,0.25)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(px_vx, py_vx); ctx.lineTo(px_v, py_v);
+    ctx.moveTo(px_vy, py_vy); ctx.lineTo(px_v, py_v);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 合速度(蓝)
+    drawArrowScreen(ball.x, ball.y, px_v, py_v, getCss("--vfull"), 2.6);
+    // 水平分量(绿,匀速)
+    drawArrowScreen(ball.x, ball.y, px_vx, py_vx, getCss("--vx"), 2.4);
+    // 竖直分量(红,匀变速)
+    drawArrowScreen(ball.x, ball.y, px_vy, py_vy, getCss("--vy"), 2.4);
+
+    // 分量数值标注:变量名 vₓ / vᵧ 用斜体衬线(下标用规范 Unicode),
+    // 与侧栏 MathML 的 <msub><mi>v</mi><mi>x</mi></msub> 字形一致;数值用等宽。
+    ctx.fillStyle = getCss("--vx"); ctx.textBaseline = "top";
+    drawLabelSeg((ball.x + px_vx) / 2, (ball.y + py_vx) / 2 + 6, "vₓ", "=" + fmt(vxx));
+    ctx.fillStyle = getCss("--vy"); ctx.textBaseline = "middle";
+    drawLabelSeg(px_vy + 6, (ball.y + py_vy) / 2, "vᵧ", "=" + fmt(vyy));
+
+    // 小球
+    ctx.fillStyle = getCss("--ball");
+    ctx.strokeStyle = "#1a1200";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(ball.x, ball.y, 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  }
+
+  // ---------- 绘制:发射点 / 最高点 / 落地点 ----------
+  function drawMarkers() {
+    var T = flightTime();
+    // 发射点
+    var s = project(0, P.h0, 0);
+    markDot(s, getCss("--accent"), "发射点");
+    // 最高点(仅当有上升段)
+    if (vy0() > 1e-6 && topTime() < T) {
+      var tp = topTime();
+      var ap = project(posX(tp), posY(tp), 0);
+      markDot(ap, getCss("--apex"), "最高点 ", "H", "=" + fmt(maxHeight()));
+    }
+    // 落地点
+    var lp = project(range(), 0, 0);
+    markDot(lp, getCss("--land"), "落地 ", "R", "=" + fmt(range()));
+  }
+  // 画标记点 + 标签。varName/numStr 可选:提供时把变量名(H/R)斜体衬线、
+  // 数值等宽,与公式块字形一致;只传 prefix 时按纯中文居中绘制(如「发射点」)。
+  function markDot(p, color, prefix, varName, numStr) {
+    ctx.fillStyle = color; ctx.strokeStyle = "#0b0f14"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 5.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.textBaseline = "bottom";
+    var CN = "12px 'Microsoft YaHei', sans-serif";
+    if (!varName) {                       // 纯文本标签:居中
+      ctx.font = CN; ctx.textAlign = "center";
+      ctx.fillText(prefix, p.x, p.y - 8);
+      return;
+    }
+    // 混排:先量总宽实现整体居中,再分段左对齐绘制
+    ctx.font = CN;        var wPre = ctx.measureText(prefix).width;
+    ctx.font = MATH_FONT_C; var wVar = ctx.measureText(varName).width;
+    ctx.font = NUM_FONT_C;  var wNum = ctx.measureText(numStr).width;
+    ctx.textAlign = "left";
+    var x0 = p.x - (wPre + wVar + wNum) / 2, y = p.y - 8;
+    var cx = drawSeg(x0, y, prefix, CN);
+    cx = drawSeg(cx, y, varName, MATH_FONT_C);
+    drawSeg(cx, y, numStr, NUM_FONT_C);
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    drawGround();
+    drawTrajectory();
+    drawMarkers();
+    drawBallAndVectors();
+    updatePanel();
+  }
+
+  // ---------- 侧栏读数 ----------
+  function updatePanel() {
+    var T = flightTime();
+    document.getElementById("sT").max = T > 0 ? T.toFixed(3) : 1;
+    document.getElementById("sT").value = Math.min(t, T).toFixed(3);
+    document.getElementById("numT").textContent = fmt(t) + " s";
+
+    var X = posX(t), Y = posY(t), vyy = velY(t), vxx = vx0(), v = speedAt(t);
+    document.getElementById("roPos").textContent = "(" + fmt(X) + ", " + fmt(Y) + ") m";
+    document.getElementById("roVx").textContent = fmt(vxx) + " m/s";
+    document.getElementById("roVy").textContent = fmt(vyy) + " m/s";
+    document.getElementById("roV").textContent = fmt(v) + " m/s";
+    var ang = Math.atan2(vyy, vxx) * 180 / Math.PI;
+    document.getElementById("roAng").textContent = fmt(ang) + "°";
+
+    document.getElementById("roT").textContent = fmt(T) + " s";
+    document.getElementById("roR").textContent = fmt(range()) + " m";
+    document.getElementById("roH").textContent = fmt(maxHeight()) + " m";
+    document.getElementById("roVland").textContent = fmt(speedAt(T)) + " m/s";
+  }
+
+  // ---------- 工具 ----------
+  function niceStep(rng, targetTicks) {
+    var raw = rng / targetTicks;
+    var mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    var norm = raw / mag, step;
+    if (norm < 1.5) step = 1; else if (norm < 3) step = 2; else if (norm < 7) step = 5; else step = 10;
+    return step * mag;
+  }
+  function fmt(v) {
+    if (!isFinite(v)) return "—";
+    var r = Math.round(v * 100) / 100;
+    if (Math.abs(r) < 1e-9) r = 0;
+    return r.toFixed(Math.abs(r) < 100 ? 2 : 1).replace("-", "−");
+  }
+  // canvas 内变量名的斜体衬线 / 数值等宽字体(与侧栏 MathML、读数面板风格一致)
+  var MATH_FONT_C = "italic 13px 'Cambria Math', 'Times New Roman', serif";
+  var NUM_FONT_C  = "11px Consolas, monospace";
+  // 在 (x,y) 处画一段文本,返回下一段起始 x(用于斜体变量名 + 等宽数值混排)
+  function drawSeg(x, y, text, font) {
+    ctx.font = font;
+    ctx.fillText(text, x, y);
+    return x + ctx.measureText(text).width;
+  }
+  // 「斜体变量名 + 等宽数值」标注;固定 left 对齐以保证分段定位准确
+  function drawLabelSeg(x, y, name, num) {
+    ctx.textAlign = "left";
+    var nx = drawSeg(x, y, name, MATH_FONT_C);
+    drawSeg(nx, y, num, NUM_FONT_C);
+  }
+  var cssCache = {};
+  function getCss(name) {
+    if (cssCache[name]) return cssCache[name];
+    var v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    cssCache[name] = v; return v;
+  }
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+  // ---------- 交互:在轨迹上拖动取 t ----------
+  // 通过在飞行时间内采样,找屏幕上离指针最近的 t
+  function pointerToT(evt) {
+    var rect = canvas.getBoundingClientRect();
+    var cx = (evt.touches ? evt.touches[0].clientX : evt.clientX) - rect.left;
+    var cy = (evt.touches ? evt.touches[0].clientY : evt.clientY) - rect.top;
+    var T = flightTime();
+    if (T <= 0) return 0;
+    var best = 0, bestD = Infinity, N = 200;
+    for (var i = 0; i <= N; i++) {
+      var tt = T * (i / N);
+      var p = project(posX(tt), posY(tt), 0);
+      var d = (p.x - cx) * (p.x - cx) + (p.y - cy) * (p.y - cy);
+      if (d < bestD) { bestD = d; best = tt; }
+    }
+    return best;
+  }
+  function startDrag(evt) {
+    playing = false; updatePlayBtn();
+    dragging = true; canvas.classList.add("dragging");
+    t = pointerToT(evt); draw(); evt.preventDefault();
+  }
+  function moveDrag(evt) {
+    if (!dragging) return;
+    t = pointerToT(evt); draw(); evt.preventDefault();
+  }
+  function endDrag() { dragging = false; canvas.classList.remove("dragging"); }
+
+  canvas.addEventListener("mousedown", startDrag);
+  window.addEventListener("mousemove", moveDrag);
+  window.addEventListener("mouseup", endDrag);
+  canvas.addEventListener("touchstart", startDrag, { passive: false });
+  canvas.addEventListener("touchmove", moveDrag, { passive: false });
+  window.addEventListener("touchend", endDrag);
+
+  // ---------- 时间滑块 ----------
+  document.getElementById("sT").addEventListener("input", function () {
+    playing = false; updatePlayBtn();
+    t = clamp(parseFloat(this.value), 0, flightTime());
+    draw();
+  });
+
+  // ---------- 参数滑块 ----------
+  function onParamChange() {
+    fitWorld(); recalcCam();
+    t = clamp(t, 0, flightTime());
+    draw();
+  }
+  function bindSlider(id, key, numId, unit, dec) {
+    var el = document.getElementById(id);
+    el.addEventListener("input", function () {
+      P[key] = parseFloat(el.value);
+      document.getElementById(numId).textContent = parseFloat(el.value).toFixed(dec) + (unit || "");
+      clearPreset();
+      onParamChange();
+    });
+  }
+  bindSlider("sV0", "v0", "numV0", "", 1);
+  bindSlider("sTh", "theta", "numTh", "", 0);
+  bindSlider("sG", "g", "numG", "", 1);
+  bindSlider("sH0", "h0", "numH0", "", 1);
+
+  function setParams(v0, theta, g, h0) {
+    P.v0 = v0; P.theta = theta; P.g = g; P.h0 = h0;
+    document.getElementById("sV0").value = v0; document.getElementById("numV0").textContent = v0.toFixed(1);
+    document.getElementById("sTh").value = theta; document.getElementById("numTh").textContent = theta.toFixed(0);
+    document.getElementById("sG").value = g; document.getElementById("numG").textContent = g.toFixed(1);
+    document.getElementById("sH0").value = h0; document.getElementById("numH0").textContent = h0.toFixed(1);
+    t = 0; onParamChange();
+  }
+
+  // ---------- 预设 ----------
+  var presetBtns = ["presetFlat", "preset45", "presetHigh", "presetMoon"];
+  function clearPreset() { presetBtns.forEach(function (id) { document.getElementById(id).classList.remove("active"); }); }
+  function setActive(id) { clearPreset(); document.getElementById(id).classList.add("active"); }
+
+  document.getElementById("presetFlat").addEventListener("click", function () {
+    setActive("presetFlat"); setParams(18, 0, 9.8, 25);     // 平抛:从高处水平抛出
+  });
+  document.getElementById("preset45").addEventListener("click", function () {
+    setActive("preset45"); setParams(20, 45, 9.8, 0);       // 经典 45° 最大射程
+  });
+  document.getElementById("presetHigh").addEventListener("click", function () {
+    setActive("presetHigh"); setParams(20, 75, 9.8, 0);     // 大角度:高弧线
+  });
+  document.getElementById("presetMoon").addEventListener("click", function () {
+    setActive("presetMoon"); setParams(20, 45, 1.6, 0);     // 低重力:飞得更远更久
+  });
+  document.getElementById("btnReset").addEventListener("click", function () {
+    playing = false; updatePlayBtn(); t = 0; fitWorld(); recalcCam(); draw();
+  });
+
+  // ---------- 播放动画 ----------
+  function updatePlayBtn() {
+    var b = document.getElementById("btnPlay");
+    b.textContent = playing ? "⏸ 暂停" : "▶ 播放";
+    b.classList.toggle("active", playing);
+  }
+  document.getElementById("btnPlay").addEventListener("click", function () {
+    var T = flightTime();
+    if (!playing && t >= T - 1e-6) t = 0;   // 播完后再按从头开始
+    playing = !playing; updatePlayBtn();
+    if (playing) { lastFrame = performance.now(); requestAnimationFrame(tick); }
+  });
+  function tick(now) {
+    if (!playing) return;
+    var dt = (now - lastFrame) / 1000;
+    lastFrame = now;
+    var T = flightTime();
+    var speedFactor = Math.max(0.6, T / 2.2);  // 让长短飞行都在 ~2s 内播完
+    t += dt * speedFactor;
+    if (t >= T) { t = T; playing = false; updatePlayBtn(); draw(); return; }
+    draw();
+    requestAnimationFrame(tick);
+  }
+
+  // ---------- 启动 ----------
+  window.addEventListener("resize", resize);
+  resize();
+})();
+</script>
+</body>
+</html>
