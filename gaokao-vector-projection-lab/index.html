@@ -42,11 +42,42 @@
     padding: 16px;
     min-width: 0;
   }
+  .stage-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
   .stage h1 {
     font-size: 18px;
-    margin: 0 0 4px 0;
+    margin: 0;
     font-weight: 600;
   }
+  .lang-switch {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .lang-switch button {
+    background: none;
+    border: none;
+    padding: 3px 7px;
+    font-size: 13px;
+    cursor: pointer;
+    color: var(--muted);
+    border-radius: 5px;
+    border: 1px solid transparent;
+    transition: color .15s, border-color .15s;
+  }
+  .lang-switch button.active {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  .lang-switch .sep { color: var(--muted); }
   .stage .sub {
     color: var(--muted);
     font-size: 13px;
@@ -181,7 +212,14 @@
 <body>
 <div class="app">
   <div class="stage">
-    <h1>向量可视化实验室 — 点乘 · 投影 · 力的分解</h1>
+    <div class="stage-header">
+      <h1 id="h1Title">向量可视化实验室 — 点乘 · 投影 · 力的分解</h1>
+      <div class="lang-switch">
+        <button id="btnZh" class="active" onclick="setLang('zh')">中文</button>
+        <span class="sep">|</span>
+        <button id="btnEn" onclick="setLang('en')">EN</button>
+      </div>
+    </div>
     <p class="sub" id="subHint">拖动向量 a(绿)、b(黄)的箭头端点,观察点乘、夹角与 a 在 b 上的投影实时变化。</p>
     <div class="canvas-wrap">
       <canvas id="cv"></canvas>
@@ -189,7 +227,7 @@
   </div>
 
   <aside class="panel">
-    <h2>模式</h2>
+    <h2 id="h2Mode">模式</h2>
     <div class="mode-row">
       <button id="modeDot" class="active">点乘 · 投影</button>
       <button id="modeForce">力的分解</button>
@@ -197,7 +235,7 @@
 
     <!-- ============ 点乘 / 投影模式 ============ -->
     <div id="dotPanel">
-      <h2>公式</h2>
+      <h2 id="h2DotFormula">公式</h2>
       <div class="expr">
         <math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
           <mover><mi>a</mi><mo>→</mo></mover>
@@ -227,22 +265,22 @@
           <mo>|</mo><mi>a</mi><mo>|</mo>
           <mi>cos</mi><mo>&#x2061;</mo><mi>θ</mi>
         </math>
-        <small>（a 在 b 上,标量投影）</small>
+        <small id="smProjScalar">（a 在 b 上,标量投影）</small>
       </div>
 
-      <h2>实时数值</h2>
+      <h2 id="h2DotValues">实时数值</h2>
       <div class="readout">
-        <div><span class="k"><span class="swatch" style="background:var(--veca)"></span>向量 <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover></math></span><span class="v" id="roA">(3, 1)</span></div>
-        <div><span class="k"><span class="swatch" style="background:var(--vecb)"></span>向量 <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>b</mi><mo>→</mo></mover></math></span><span class="v" id="roB">(2, 3)</span></div>
-        <div><span class="k"><math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mo>|</mo><mi>a</mi><mo>|</mo></mrow></math>（模）</span><span class="v" id="roLenA">—</span></div>
-        <div><span class="k"><math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mo>|</mo><mi>b</mi><mo>|</mo></mrow></math>（模）</span><span class="v" id="roLenB">—</span></div>
-        <div><span class="k"><math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mover><mi>a</mi><mo>→</mo></mover><mo>·</mo><mover><mi>b</mi><mo>→</mo></mover></mrow></math>（点乘）</span><span class="v" id="roDot">—</span></div>
-        <div><span class="k">夹角 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>θ</mi></math></span><span class="v" id="roAngle">—</span></div>
-        <div><span class="k"><span class="swatch" style="background:var(--proj)"></span><math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover></math> 在 <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>b</mi><mo>→</mo></mover></math> 上投影（标量）</span><span class="v" id="roProjA">—</span></div>
-        <div><span class="k"><math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>b</mi><mo>→</mo></mover></math> 在 <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover></math> 上投影（标量）</span><span class="v" id="roProjB">—</span></div>
+        <div><span class="k"><span class="swatch" style="background:var(--veca)"></span><span id="lblVecA">向量</span> <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover></math></span><span class="v" id="roA">(3, 1)</span></div>
+        <div><span class="k"><span class="swatch" style="background:var(--vecb)"></span><span id="lblVecB">向量</span> <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>b</mi><mo>→</mo></mover></math></span><span class="v" id="roB">(2, 3)</span></div>
+        <div><span class="k"><math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mo>|</mo><mi>a</mi><mo>|</mo></mrow></math><span id="lblMagA">（模）</span></span><span class="v" id="roLenA">—</span></div>
+        <div><span class="k"><math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mo>|</mo><mi>b</mi><mo>|</mo></mrow></math><span id="lblMagB">（模）</span></span><span class="v" id="roLenB">—</span></div>
+        <div><span class="k"><math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mover><mi>a</mi><mo>→</mo></mover><mo>·</mo><mover><mi>b</mi><mo>→</mo></mover></mrow></math><span id="lblDotProd">（点乘）</span></span><span class="v" id="roDot">—</span></div>
+        <div><span class="k"><span id="lblAngle">夹角</span> <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>θ</mi></math></span><span class="v" id="roAngle">—</span></div>
+        <div><span class="k"><span class="swatch" style="background:var(--proj)"></span><math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover></math> <span id="lblProjAon">在</span> <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>b</mi><mo>→</mo></mover></math> <span id="lblProjAscalar">上投影（标量）</span></span><span class="v" id="roProjA">—</span></div>
+        <div><span class="k"><math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>b</mi><mo>→</mo></mover></math> <span id="lblProjBon">在</span> <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover></math> <span id="lblProjBscalar">上投影（标量）</span></span><span class="v" id="roProjB">—</span></div>
       </div>
 
-      <h2>预设</h2>
+      <h2 id="h2DotPresets">预设</h2>
       <div class="btn-row">
         <button id="presetOrtho">正交（垂直）</button>
         <button id="presetSame">同向</button>
@@ -250,16 +288,16 @@
         <button id="presetObtuse">钝角</button>
       </div>
 
-      <h2>图例</h2>
-      <div class="legend">
-        <span class="swatch" style="background:var(--veca)"></span><b style="color:var(--veca)">向量 <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover></math></b>(拖动绿色箭头端点)<br>
-        <span class="swatch" style="background:var(--vecb)"></span><b style="color:var(--vecb)">向量 <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>b</mi><mo>→</mo></mover></math></b>(拖动黄色箭头端点)<br>
-        <span class="swatch" style="background:var(--proj)"></span><b style="color:var(--proj)">投影向量</b>:<math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover></math> 在 <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>b</mi><mo>→</mo></mover></math> 方向上的影子<br>
-        <span class="swatch" style="background:var(--aux)"></span><b style="color:var(--aux)">辅助虚线</b>:a 端点到 b 所在直线的垂线
+      <h2 id="h2DotLegend">图例</h2>
+      <div class="legend" id="dotLegend">
+        <span class="swatch" style="background:var(--veca)"></span><b style="color:var(--veca)"><span id="lblLegVecA">向量</span> <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover></math></b><span id="lblLegVecAHint">（拖动绿色箭头端点）</span><br>
+        <span class="swatch" style="background:var(--vecb)"></span><b style="color:var(--vecb)"><span id="lblLegVecB">向量</span> <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>b</mi><mo>→</mo></mover></math></b><span id="lblLegVecBHint">（拖动黄色箭头端点）</span><br>
+        <span class="swatch" style="background:var(--proj)"></span><b style="color:var(--proj)" id="lblLegProj">投影向量</b>:<span id="lblLegProjDesc"><math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover></math> 在 <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>b</mi><mo>→</mo></mover></math> 方向上的影子</span><br>
+        <span class="swatch" style="background:var(--aux)"></span><b style="color:var(--aux)" id="lblLegAux">辅助虚线</b>:<span id="lblLegAuxDesc">a 端点到 b 所在直线的垂线</span>
       </div>
 
-      <h2>点乘与投影说明</h2>
-      <p class="note">
+      <h2 id="h2DotNote">点乘与投影说明</h2>
+      <p class="note" id="dotNote">
         <b>点乘 <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover><mo>·</mo><mover><mi>b</mi><mo>→</mo></mover></math></b> 衡量两向量的「同向程度」,几何上等于 <b><math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mo>|</mo><mi>a</mi><mo>|</mo></mrow></math>·(<math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover></math> 在 <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>b</mi><mo>→</mo></mover></math> 上的投影)</b>。<br>
         · <b><math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover><mo>·</mo><mover><mi>b</mi><mo>→</mo></mover><mo>&gt;</mo><mn>0</mn></math></b>:夹角为锐角,两向量大体同向。<br>
         · <b><math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover><mo>·</mo><mover><mi>b</mi><mo>→</mo></mover><mo>=</mo><mn>0</mn></math></b>:夹角 90°,两向量<b>正交(垂直)</b>。<br>
@@ -270,76 +308,76 @@
 
     <!-- ============ 力的分解模式 ============ -->
     <div id="forcePanel" class="hidden">
-      <h2>公式</h2>
+      <h2 id="h2ForceFormula">公式</h2>
       <div class="expr">
         <math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
           <mover><mi>F</mi><mo>→</mo></mover>
           <mo>=</mo>
-          <msub><mover><mi>F</mi><mo>→</mo></mover><mtext>切</mtext></msub>
+          <msub><mover><mi>F</mi><mo>→</mo></mover><mtext id="mmlTan1">切</mtext></msub>
           <mo>+</mo>
-          <msub><mover><mi>F</mi><mo>→</mo></mover><mtext>法</mtext></msub>
+          <msub><mover><mi>F</mi><mo>→</mo></mover><mtext id="mmlNorm1">法</mtext></msub>
         </math>
-        <small>（沿两正交方向分解）</small>
+        <small id="smForceDecomp">（沿两正交方向分解）</small>
       </div>
       <div class="expr">
         <math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
-          <msub><mi>F</mi><mtext>切</mtext></msub>
+          <msub><mi>F</mi><mtext id="mmlTan2">切</mtext></msub>
           <mo>=</mo>
           <mo>|</mo><mi>F</mi><mo>|</mo>
           <mi>cos</mi><mo>&#x2061;</mo><mi>φ</mi>
           <mo>,</mo>
           <mspace width="0.6em"/>
-          <msub><mi>F</mi><mtext>法</mtext></msub>
+          <msub><mi>F</mi><mtext id="mmlNorm2">法</mtext></msub>
           <mo>=</mo>
           <mo>|</mo><mi>F</mi><mo>|</mo>
           <mi>sin</mi><mo>&#x2061;</mo><mi>φ</mi>
         </math>
-        <small>（φ 为 F 与切向夹角）</small>
+        <small id="smPhiDef">（φ 为 F 与切向夹角）</small>
       </div>
       <div class="expr">
         <math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
-          <msup><msub><mi>F</mi><mtext>切</mtext></msub><mn>2</mn></msup>
+          <msup><msub><mi>F</mi><mtext id="mmlTan3">切</mtext></msub><mn>2</mn></msup>
           <mo>+</mo>
-          <msup><msub><mi>F</mi><mtext>法</mtext></msub><mn>2</mn></msup>
+          <msup><msub><mi>F</mi><mtext id="mmlNorm3">法</mtext></msub><mn>2</mn></msup>
           <mo>=</mo>
           <msup><mrow><mo>|</mo><mi>F</mi><mo>|</mo></mrow><mn>2</mn></msup>
         </math>
-        <small>（两正交分量满足勾股关系）</small>
+        <small id="smPythagoras">（两正交分量满足勾股关系）</small>
       </div>
 
-      <h2>实时数值</h2>
+      <h2 id="h2ForceValues">实时数值</h2>
       <div class="readout">
-        <div><span class="k"><span class="swatch" style="background:var(--force)"></span>力 <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>F</mi><mo>→</mo></mover></math></span><span class="v" id="roF">—</span></div>
-        <div><span class="k"><math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mo>|</mo><mi>F</mi><mo>|</mo></mrow></math>（大小）</span><span class="v" id="roLenF">—</span></div>
-        <div><span class="k">斜面倾角 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>α</mi></math></span><span class="v" id="roSlope">—</span></div>
-        <div><span class="k"><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>F</mi></math> 与切向夹角 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>φ</mi></math></span><span class="v" id="roPhi">—</span></div>
-        <div><span class="k"><span class="swatch" style="background:var(--comp1)"></span>切向分量 <math xmlns="http://www.w3.org/1998/Math/MathML"><msub><mi>F</mi><mtext>切</mtext></msub></math></span><span class="v" id="roComp1">—</span></div>
-        <div><span class="k"><span class="swatch" style="background:var(--comp2)"></span>法向分量 <math xmlns="http://www.w3.org/1998/Math/MathML"><msub><mi>F</mi><mtext>法</mtext></msub></math></span><span class="v" id="roComp2">—</span></div>
+        <div><span class="k"><span class="swatch" style="background:var(--force)"></span><span id="lblForce">力</span> <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>F</mi><mo>→</mo></mover></math></span><span class="v" id="roF">—</span></div>
+        <div><span class="k"><math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mo>|</mo><mi>F</mi><mo>|</mo></mrow></math><span id="lblFMag">（大小）</span></span><span class="v" id="roLenF">—</span></div>
+        <div><span class="k"><span id="lblSlope">斜面倾角</span> <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>α</mi></math></span><span class="v" id="roSlope">—</span></div>
+        <div><span class="k"><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>F</mi></math> <span id="lblPhiDef">与切向夹角</span> <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>φ</mi></math></span><span class="v" id="roPhi">—</span></div>
+        <div><span class="k"><span class="swatch" style="background:var(--comp1)"></span><span id="lblTanComp">切向分量</span> <math xmlns="http://www.w3.org/1998/Math/MathML"><msub><mi>F</mi><mtext id="mmlTan4">切</mtext></msub></math></span><span class="v" id="roComp1">—</span></div>
+        <div><span class="k"><span class="swatch" style="background:var(--comp2)"></span><span id="lblNormComp">法向分量</span> <math xmlns="http://www.w3.org/1998/Math/MathML"><msub><mi>F</mi><mtext id="mmlNorm4">法</mtext></msub></math></span><span class="v" id="roComp2">—</span></div>
       </div>
 
-      <h2>斜面倾角 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>α</mi></math></h2>
+      <h2 id="h2SlopeAngle">斜面倾角 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>α</mi></math></h2>
       <div class="slider-row">
-        <div class="head"><span class="name"><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>α</mi></math>（分解坐标系倾角）</span><span class="num" id="numSlope">30°</span></div>
+        <div class="head"><span class="name" id="lblSlopeSlider"><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>α</mi></math>（分解坐标系倾角）</span><span class="num" id="numSlope">30°</span></div>
         <input type="range" id="sSlope" min="0" max="90" step="1" value="30">
       </div>
 
-      <h2>预设</h2>
+      <h2 id="h2ForcePresets">预设</h2>
       <div class="btn-row">
         <button id="presetIncline" class="active">斜面受力 30°</button>
         <button id="presetAxis">沿坐标轴分解</button>
         <button id="presetSteep">陡坡 60°</button>
       </div>
 
-      <h2>图例</h2>
-      <div class="legend">
-        <span class="swatch" style="background:var(--force)"></span><b style="color:var(--force)">力 <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>F</mi><mo>→</mo></mover></math></b>(拖动紫色箭头端点)<br>
-        <span class="swatch" style="background:var(--comp1)"></span><b style="color:var(--comp1)">切向分量</b>:沿斜面方向<br>
-        <span class="swatch" style="background:var(--comp2)"></span><b style="color:var(--comp2)">法向分量</b>:垂直斜面方向<br>
-        <span class="swatch" style="background:var(--aux)"></span><b style="color:var(--aux)">虚线</b>:平行四边形(矩形)辅助线
+      <h2 id="h2ForceLegend">图例</h2>
+      <div class="legend" id="forceLegend">
+        <span class="swatch" style="background:var(--force)"></span><b style="color:var(--force)"><span id="lblLegForce">力</span> <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>F</mi><mo>→</mo></mover></math></b><span id="lblLegForceHint">（拖动紫色箭头端点）</span><br>
+        <span class="swatch" style="background:var(--comp1)"></span><b style="color:var(--comp1)" id="lblLegTan">切向分量</b>:<span id="lblLegTanDesc">沿斜面方向</span><br>
+        <span class="swatch" style="background:var(--comp2)"></span><b style="color:var(--comp2)" id="lblLegNorm">法向分量</b>:<span id="lblLegNormDesc">垂直斜面方向</span><br>
+        <span class="swatch" style="background:var(--aux)"></span><b style="color:var(--aux)" id="lblLegDashed">虚线</b>:<span id="lblLegDashedDesc">平行四边形（矩形）辅助线</span>
       </div>
 
-      <h2>力的分解说明</h2>
-      <p class="note">
+      <h2 id="h2ForceNote">力的分解说明</h2>
+      <p class="note" id="forceNote">
         把一个力 <b><math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>F</mi><mo>→</mo></mover></math></b> 沿两个<b>互相垂直</b>的方向(这里取沿斜面的<b>切向</b>与垂直斜面的<b>法向</b>)分解,
         得到两个分量,满足 <b><math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mover><mi>F</mi><mo>→</mo></mover><mo>=</mo><msub><mover><mi>F</mi><mo>→</mo></mover><mtext>切</mtext></msub><mo>+</mo><msub><mover><mi>F</mi><mo>→</mo></mover><mtext>法</mtext></msub></mrow></math></b>(向量相加)。<br>
         分量大小就是 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>F</mi></math> 在各方向上的<b>投影</b>:<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><msub><mi>F</mi><mtext>切</mtext></msub><mo>=</mo><mo>|</mo><mi>F</mi><mo>|</mo><mi>cos</mi><mo>&#x2061;</mo><mi>φ</mi></mrow></math>,<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><msub><mi>F</mi><mtext>法</mtext></msub><mo>=</mo><mo>|</mo><mi>F</mi><mo>|</mo><mi>sin</mi><mo>&#x2061;</mo><mi>φ</mi></mrow></math>。
@@ -347,7 +385,7 @@
       </p>
     </div>
 
-    <div class="compliance">
+    <div class="compliance" id="complianceText">
       合规声明:本 demo 仅使用<b>自绘抽象向量与可调参数</b>做概念可视化,
       未复制任何高考原题文字、原卷图片或答案图,不是题目搬运。
     </div>
@@ -359,11 +397,276 @@
   "use strict";
 
   // ====================================================================
+  // I18N 字典
+  // ====================================================================
+  var I18N = {
+    zh: {
+      title: "向量可视化实验室 · 点乘 / 投影 / 力的分解",
+      h1: "向量可视化实验室 — 点乘 · 投影 · 力的分解",
+      subDot: "拖动向量 a（绿）、b（黄）的箭头端点，观察点乘、夹角与 a 在 b 上的投影实时变化。",
+      subForce: "拖动力 F（紫）的箭头端点，或调整斜面倾角 α，观察力沿斜面切向 / 法向的正交分解。",
+      h2Mode: "模式",
+      btnDot: "点乘 · 投影",
+      btnForce: "力的分解",
+      // 点乘面板
+      h2DotFormula: "公式",
+      smProjScalar: "（a 在 b 上，标量投影）",
+      h2DotValues: "实时数值",
+      lblVecA: "向量",
+      lblVecB: "向量",
+      lblMagA: "（模）",
+      lblMagB: "（模）",
+      lblDotProd: "（点乘）",
+      lblAngle: "夹角",
+      lblProjAon: "在",
+      lblProjAscalar: "上投影（标量）",
+      lblProjBon: "在",
+      lblProjBscalar: "上投影（标量）",
+      h2DotPresets: "预设",
+      presetOrtho: "正交（垂直）",
+      presetSame: "同向",
+      preset60: "夹角 60°",
+      presetObtuse: "钝角",
+      h2DotLegend: "图例",
+      lblLegVecA: "向量",
+      lblLegVecAHint: "（拖动绿色箭头端点）",
+      lblLegVecB: "向量",
+      lblLegVecBHint: "（拖动黄色箭头端点）",
+      lblLegProj: "投影向量",
+      lblLegProjDesc: "在 b 方向上的影子",  // 前面有 MathML，拼接用
+      lblLegAux: "辅助虚线",
+      lblLegAuxDesc: "a 端点到 b 所在直线的垂线",
+      h2DotNote: "点乘与投影说明",
+      dotNote: '<b>点乘 <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover><mo>·</mo><mover><mi>b</mi><mo>→</mo></mover></math></b> 衡量两向量的「同向程度」，几何上等于 <b><math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mo>|</mo><mi>a</mi><mo>|</mo></mrow></math>·(<math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover></math> 在 <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>b</mi><mo>→</mo></mover></math> 上的投影)</b>。<br>· <b><math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover><mo>·</mo><mover><mi>b</mi><mo>→</mo></mover><mo>&gt;</mo><mn>0</mn></math></b>：夹角为锐角，两向量大体同向。<br>· <b><math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover><mo>·</mo><mover><mi>b</mi><mo>→</mo></mover><mo>=</mo><mn>0</mn></math></b>：夹角 90°，两向量<b>正交（垂直）</b>。<br>· <b><math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover><mo>·</mo><mover><mi>b</mi><mo>→</mo></mover><mo>&lt;</mo><mn>0</mn></math></b>：夹角为钝角，两向量大体反向。<br><b>投影</b>是把 <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover></math>「压」到 <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>b</mi><mo>→</mo></mover></math> 所在直线上的影子，长度 = <math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mo>|</mo><mi>a</mi><mo>|</mo><mi>cos</mi><mo>&#x2061;</mo><mi>θ</mi></mrow></math>；红色高亮线段即为投影向量。',
+      // 力的分解面板
+      h2ForceFormula: "公式",
+      mmlTan: "切",
+      mmlNorm: "法",
+      smForceDecomp: "（沿两正交方向分解）",
+      smPhiDef: "（φ 为 F 与切向夹角）",
+      smPythagoras: "（两正交分量满足勾股关系）",
+      h2ForceValues: "实时数值",
+      lblForce: "力",
+      lblFMag: "（大小）",
+      lblSlope: "斜面倾角",
+      lblPhiDef: "与切向夹角",
+      lblTanComp: "切向分量",
+      lblNormComp: "法向分量",
+      h2SlopeAngle: "斜面倾角",
+      lblSlopeSlider: "（分解坐标系倾角）",  // 前有 MathML α
+      h2ForcePresets: "预设",
+      presetIncline: "斜面受力 30°",
+      presetAxis: "沿坐标轴分解",
+      presetSteep: "陡坡 60°",
+      h2ForceLegend: "图例",
+      lblLegForce: "力",
+      lblLegForceHint: "（拖动紫色箭头端点）",
+      lblLegTan: "切向分量",
+      lblLegTanDesc: "沿斜面方向",
+      lblLegNorm: "法向分量",
+      lblLegNormDesc: "垂直斜面方向",
+      lblLegDashed: "虚线",
+      lblLegDashedDesc: "平行四边形（矩形）辅助线",
+      h2ForceNote: "力的分解说明",
+      forceNote: '把一个力 <b><math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>F</mi><mo>→</mo></mover></math></b> 沿两个<b>互相垂直</b>的方向（这里取沿斜面的<b>切向</b>与垂直斜面的<b>法向</b>）分解，得到两个分量，满足 <b><math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mover><mi>F</mi><mo>→</mo></mover><mo>=</mo><msub><mover><mi>F</mi><mo>→</mo></mover><mtext>切</mtext></msub><mo>+</mo><msub><mover><mi>F</mi><mo>→</mo></mover><mtext>法</mtext></msub></mrow></math></b>（向量相加）。<br>分量大小就是 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>F</mi></math> 在各方向上的<b>投影</b>：<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><msub><mi>F</mi><mtext>切</mtext></msub><mo>=</mo><mo>|</mo><mi>F</mi><mo>|</mo><mi>cos</mi><mo>&#x2061;</mo><mi>φ</mi></mrow></math>，<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><msub><mi>F</mi><mtext>法</mtext></msub><mo>=</mo><mo>|</mo><mi>F</mi><mo>|</mo><mi>sin</mi><mo>&#x2061;</mo><mi>φ</mi></mrow></math>。拖动 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>F</mi></math> 或调整斜面倾角 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>α</mi></math>，观察两个正交分量如何此消彼长。',
+      compliance: '合规声明：本 demo 仅使用<b>自绘抽象向量与可调参数</b>做概念可视化，未复制任何高考原题文字、原卷图片或答案图，不是题目搬运。',
+      // canvas 标签
+      canvasProj: "投影",
+      canvasTan: "切",
+      canvasNorm: "法"
+    },
+    en: {
+      title: "Vector Visual Lab · Dot Product / Projection / Force Decomposition",
+      h1: "Vector Visual Lab — Dot Product · Projection · Force Decomposition",
+      subDot: "Drag the tips of vectors a (green) and b (yellow) to see the dot product, angle, and scalar projection of a onto b update in real time.",
+      subForce: "Drag the tip of force F (purple) or adjust the incline angle α to watch F decompose into tangential and normal components.",
+      h2Mode: "Mode",
+      btnDot: "Dot Product · Projection",
+      btnForce: "Force Decomposition",
+      // dot panel
+      h2DotFormula: "Formula",
+      smProjScalar: "(scalar projection of a onto b)",
+      h2DotValues: "Live Values",
+      lblVecA: "Vector",
+      lblVecB: "Vector",
+      lblMagA: "(magnitude)",
+      lblMagB: "(magnitude)",
+      lblDotProd: "(dot product)",
+      lblAngle: "Angle",
+      lblProjAon: "onto",
+      lblProjAscalar: "projection (scalar)",
+      lblProjBon: "onto",
+      lblProjBscalar: "projection (scalar)",
+      h2DotPresets: "Presets",
+      presetOrtho: "Orthogonal (90°)",
+      presetSame: "Same direction",
+      preset60: "60° angle",
+      presetObtuse: "Obtuse angle",
+      h2DotLegend: "Legend",
+      lblLegVecA: "Vector",
+      lblLegVecAHint: "(drag green arrowhead)",
+      lblLegVecB: "Vector",
+      lblLegVecBHint: "(drag yellow arrowhead)",
+      lblLegProj: "Projection vector",
+      lblLegProjDesc: "shadow of a along b",
+      lblLegAux: "Dashed auxiliary",
+      lblLegAuxDesc: "perpendicular from tip of a to line b",
+      h2DotNote: "About Dot Product & Projection",
+      dotNote: '<b>Dot product <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover><mo>·</mo><mover><mi>b</mi><mo>→</mo></mover></math></b> measures how much the two vectors point in the same direction; geometrically it equals <b><math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mo>|</mo><mi>a</mi><mo>|</mo></mrow></math> × (scalar projection of <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover></math> onto <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>b</mi><mo>→</mo></mover></math>)</b>.<br>· <b><math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover><mo>·</mo><mover><mi>b</mi><mo>→</mo></mover><mo>&gt;</mo><mn>0</mn></math></b>: acute angle — vectors point roughly the same way.<br>· <b><math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover><mo>·</mo><mover><mi>b</mi><mo>→</mo></mover><mo>=</mo><mn>0</mn></math></b>: 90° — vectors are <b>orthogonal (perpendicular)</b>.<br>· <b><math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover><mo>·</mo><mover><mi>b</mi><mo>→</mo></mover><mo>&lt;</mo><mn>0</mn></math></b>: obtuse angle — vectors point roughly opposite ways.<br>The <b>projection</b> is the shadow of <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>a</mi><mo>→</mo></mover></math> cast onto the line of <math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>b</mi><mo>→</mo></mover></math>, with length = <math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mo>|</mo><mi>a</mi><mo>|</mo><mi>cos</mi><mo>&#x2061;</mo><mi>θ</mi></mrow></math>; the red segment shows the projection vector.',
+      // force panel
+      h2ForceFormula: "Formula",
+      mmlTan: "T",
+      mmlNorm: "N",
+      smForceDecomp: "(decomposed along two orthogonal directions)",
+      smPhiDef: "(φ = angle between F and tangential direction)",
+      smPythagoras: "(orthogonal components satisfy the Pythagorean relation)",
+      h2ForceValues: "Live Values",
+      lblForce: "Force",
+      lblFMag: "(magnitude)",
+      lblSlope: "Incline angle",
+      lblPhiDef: "angle with tangential dir.",
+      lblTanComp: "Tangential component",
+      lblNormComp: "Normal component",
+      h2SlopeAngle: "Incline angle",
+      lblSlopeSlider: "(tilt of decomposition axes)",
+      h2ForcePresets: "Presets",
+      presetIncline: "Incline 30°",
+      presetAxis: "Along coordinate axes",
+      presetSteep: "Steep slope 60°",
+      h2ForceLegend: "Legend",
+      lblLegForce: "Force",
+      lblLegForceHint: "(drag purple arrowhead)",
+      lblLegTan: "Tangential component",
+      lblLegTanDesc: "along the incline",
+      lblLegNorm: "Normal component",
+      lblLegNormDesc: "perpendicular to the incline",
+      lblLegDashed: "Dashed lines",
+      lblLegDashedDesc: "parallelogram (rectangle) construction",
+      h2ForceNote: "About Force Decomposition",
+      forceNote: 'A force <b><math xmlns="http://www.w3.org/1998/Math/MathML"><mover><mi>F</mi><mo>→</mo></mover></math></b> is decomposed into two <b>mutually perpendicular</b> directions — the <b>tangential</b> direction (along the incline) and the <b>normal</b> direction (perpendicular to it) — giving two components that satisfy <b><math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mover><mi>F</mi><mo>→</mo></mover><mo>=</mo><msub><mover><mi>F</mi><mo>→</mo></mover><mi>T</mi></msub><mo>+</mo><msub><mover><mi>F</mi><mo>→</mo></mover><mi>N</mi></msub></mrow></math></b> (vector addition).<br>The magnitudes are the <b>projections</b> of F onto each axis: <math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><msub><mi>F</mi><mi>T</mi></msub><mo>=</mo><mo>|</mo><mi>F</mi><mo>|</mo><mi>cos</mi><mo>&#x2061;</mo><mi>φ</mi></mrow></math>, <math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><msub><mi>F</mi><mi>N</mi></msub><mo>=</mo><mo>|</mo><mi>F</mi><mo>|</mo><mi>sin</mi><mo>&#x2061;</mo><mi>φ</mi></mrow></math>. Drag F or adjust the incline angle α to see the two components trade off.',
+      compliance: 'Compliance note: This demo uses only <b>abstract, self-drawn vectors and adjustable parameters</b> for conceptual visualization. No exam question text, scanned papers, or answer images have been reproduced.',
+      // canvas labels
+      canvasProj: "proj",
+      canvasTan: "T",
+      canvasNorm: "N"
+    }
+  };
+
+  // ====================================================================
+  // 当前语言
+  // ====================================================================
+  var lang = "zh";
+
+  // 切换语言:更新 DOM 文案层，不触碰向量数值、canvas 几何、拖拽状态
+  window.setLang = function (l) {
+    lang = l;
+    var t = I18N[l];
+
+    // html lang 属性 + document.title
+    document.documentElement.lang = (l === "zh") ? "zh-CN" : "en";
+    document.title = t.title;
+
+    // 语言按钮高亮
+    document.getElementById("btnZh").classList.toggle("active", l === "zh");
+    document.getElementById("btnEn").classList.toggle("active", l === "en");
+
+    // 标题 / 副标题
+    document.getElementById("h1Title").textContent = t.h1;
+    // subHint 由 setMode 在当前 mode 下刷新
+    document.getElementById("subHint").textContent = (mode === "dot") ? t.subDot : t.subForce;
+
+    // 模式区
+    setTxt("h2Mode", t.h2Mode);
+    document.getElementById("modeDot").textContent = t.btnDot;
+    document.getElementById("modeForce").textContent = t.btnForce;
+
+    // ----- 点乘面板 -----
+    setTxt("h2DotFormula", t.h2DotFormula);
+    setTxt("smProjScalar", t.smProjScalar);
+    setTxt("h2DotValues", t.h2DotValues);
+    setTxt("lblVecA", t.lblVecA);
+    setTxt("lblVecB", t.lblVecB);
+    setTxt("lblMagA", t.lblMagA);
+    setTxt("lblMagB", t.lblMagB);
+    setTxt("lblDotProd", t.lblDotProd);
+    setTxt("lblAngle", t.lblAngle);
+    setTxt("lblProjAon", t.lblProjAon);
+    setTxt("lblProjAscalar", t.lblProjAscalar);
+    setTxt("lblProjBon", t.lblProjBon);
+    setTxt("lblProjBscalar", t.lblProjBscalar);
+    setTxt("h2DotPresets", t.h2DotPresets);
+    document.getElementById("presetOrtho").textContent = t.presetOrtho;
+    document.getElementById("presetSame").textContent = t.presetSame;
+    document.getElementById("preset60").textContent = t.preset60;
+    document.getElementById("presetObtuse").textContent = t.presetObtuse;
+    setTxt("h2DotLegend", t.h2DotLegend);
+    setTxt("lblLegVecA", t.lblLegVecA);
+    setTxt("lblLegVecAHint", t.lblLegVecAHint);
+    setTxt("lblLegVecB", t.lblLegVecB);
+    setTxt("lblLegVecBHint", t.lblLegVecBHint);
+    setTxt("lblLegProj", t.lblLegProj);
+    setTxt("lblLegProjDesc", t.lblLegProjDesc);
+    setTxt("lblLegAux", t.lblLegAux);
+    setTxt("lblLegAuxDesc", t.lblLegAuxDesc);
+    setTxt("h2DotNote", t.h2DotNote);
+    document.getElementById("dotNote").innerHTML = t.dotNote;
+
+    // ----- 力的分解面板 -----
+    setTxt("h2ForceFormula", t.h2ForceFormula);
+    // MathML 下标切/法 <-> T/N
+    ["mmlTan1","mmlTan2","mmlTan3","mmlTan4"].forEach(function(id){ setTxt(id, t.mmlTan); });
+    ["mmlNorm1","mmlNorm2","mmlNorm3","mmlNorm4"].forEach(function(id){ setTxt(id, t.mmlNorm); });
+    setTxt("smForceDecomp", t.smForceDecomp);
+    setTxt("smPhiDef", t.smPhiDef);
+    setTxt("smPythagoras", t.smPythagoras);
+    setTxt("h2ForceValues", t.h2ForceValues);
+    setTxt("lblForce", t.lblForce);
+    setTxt("lblFMag", t.lblFMag);
+    setTxt("lblSlope", t.lblSlope);
+    setTxt("lblPhiDef", t.lblPhiDef);
+    setTxt("lblTanComp", t.lblTanComp);
+    setTxt("lblNormComp", t.lblNormComp);
+    // h2SlopeAngle 含 MathML α，只更新标签文字即可（α 是 MathML，不动）
+    setTxt("h2SlopeAngle", t.h2SlopeAngle);   // 带 α 的 h2 用 innerText 会抹掉 MathML
+    // 改为 innerHTML 方式，保留 α MathML
+    document.getElementById("h2SlopeAngle").innerHTML = t.h2SlopeAngle + ' <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>α</mi></math>';
+    setTxt("lblSlopeSlider", t.lblSlopeSlider);
+    // slider label 含前置 MathML α，用 innerHTML
+    document.getElementById("lblSlopeSlider").innerHTML = '<math xmlns="http://www.w3.org/1998/Math/MathML"><mi>α</mi></math>' + t.lblSlopeSlider;
+    setTxt("h2ForcePresets", t.h2ForcePresets);
+    document.getElementById("presetIncline").textContent = t.presetIncline;
+    document.getElementById("presetAxis").textContent = t.presetAxis;
+    document.getElementById("presetSteep").textContent = t.presetSteep;
+    setTxt("h2ForceLegend", t.h2ForceLegend);
+    setTxt("lblLegForce", t.lblLegForce);
+    setTxt("lblLegForceHint", t.lblLegForceHint);
+    setTxt("lblLegTan", t.lblLegTan);
+    setTxt("lblLegTanDesc", t.lblLegTanDesc);
+    setTxt("lblLegNorm", t.lblLegNorm);
+    setTxt("lblLegNormDesc", t.lblLegNormDesc);
+    setTxt("lblLegDashed", t.lblLegDashed);
+    setTxt("lblLegDashedDesc", t.lblLegDashedDesc);
+    setTxt("h2ForceNote", t.h2ForceNote);
+    document.getElementById("forceNote").innerHTML = t.forceNote;
+
+    // 合规声明
+    document.getElementById("complianceText").innerHTML = t.compliance;
+
+    // canvas 重绘（标签文字跟随语言）
+    draw();
+  };
+
+  function setTxt(id, txt) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = txt;
+  }
+
+  // ====================================================================
   // 状态
   // ====================================================================
   var mode = "dot";  // "dot" | "force"
 
-  // 点乘 / 投影模式:两个向量(世界坐标,起点均为原点)
+  // 点乘 / 投影模式:两个向量(世界坐标，起点均为原点)
   var va = { x: 3, y: 1 };
   var vb = { x: 2, y: 3 };
 
@@ -371,9 +674,9 @@
   var vF = { x: 3, y: 2 };
   var slopeDeg = 30;
 
-  // 世界坐标视窗(数学坐标范围),随窗口比例自适应
+  // 世界坐标视窗(数学坐标范围)，随窗口比例自适应
   var view = { xMin: -5, xMax: 5, yMin: -5, yMax: 5 };
-  var dragging = null;   // 当前拖动的对象标识:"a" | "b" | "F" | null
+  var dragging = null;   // 当前拖动的对象标识："a" | "b" | "F" | null
 
   var canvas = document.getElementById("cv");
   var ctx = canvas.getContext("2d");
@@ -387,7 +690,7 @@
   function len(u)     { return Math.sqrt(u.x*u.x + u.y*u.y); }
   function scale(u, s){ return { x: u.x*s, y: u.y*s }; }
   function add(u, v)  { return { x: u.x+v.x, y: u.y+v.y }; }
-  // u 与 v 的夹角(弧度,0~π)
+  // u 与 v 的夹角(弧度，0~π)
   function angleBetween(u, v) {
     var lu = len(u), lv = len(v);
     if (lu < 1e-9 || lv < 1e-9) return NaN;
@@ -500,7 +803,7 @@
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
 
-    // 主干(留出箭头长度,避免线头穿出箭尖)
+    // 主干(留出箭头长度，避免线头穿出箭尖)
     var bx = x1 - Math.cos(ang) * hl * 0.6;
     var by = y1 - Math.sin(ang) * hl * 0.6;
     ctx.beginPath();
@@ -537,8 +840,8 @@
     ctx.setLineDash([]);
   }
 
-  // 标注文本。font 省略时用中文无衬线;单字母数学变量传入斜体衬线,
-  // 与侧栏 MathML 的斜体变量字形保持一致(纯数学排版,不改坐标/几何)。
+  // 标注文本。font 省略时用无衬线；单字母数学变量传入斜体衬线，
+  // 与侧栏 MathML 的斜体变量字形保持一致(纯数学排版，不改坐标/几何)。
   function label(p, text, color, dx, dy, font) {
     ctx.fillStyle = color;
     ctx.font = font || "13px 'Microsoft YaHei', sans-serif";
@@ -548,7 +851,7 @@
   }
   // 单字母数学变量的斜体字体(与 DOM 的 Cambria Math 斜体一致)
   var MATH_FONT = "italic 15px 'Cambria Math', 'Times New Roman', serif";
-  // 带下标的变量标注:主字母斜体衬线 + 小一号直立下标(对应 DOM 的 <msub><mi>F</mi><mtext>切</mtext></msub>)
+  // 带下标的变量标注:主字母斜体衬线 + 小一号直立下标
   function labelSub(p, base, sub, color, dx, dy) {
     var bx = sx(p.x) + (dx||0), by = sy(p.y) + (dy||0);
     ctx.fillStyle = color;
@@ -570,14 +873,14 @@
     var projVec = vectorProj(va, vb);      // a 在 b 上的投影向量
     var footPx = projVec;                  // 投影向量终点 = 垂足(从原点起)
 
-    // 1) 投影辅助:b 所在直线(浅色,延伸)
+    // 1) 投影辅助:b 所在直线(浅色，延伸)
     if (len(vb) > 1e-9) {
       var ub = scale(vb, 1 / len(vb));
       var far = Math.max(view.xMax - view.xMin, view.yMax - view.yMin);
       drawSeg(scale(ub, -far), scale(ub, far), getCss("--grid"), 1, [4, 4]);
     }
 
-    // 2) 投影向量(红色高亮,从原点到垂足)
+    // 2) 投影向量(红色高亮，从原点到垂足)
     if (len(projVec) > 1e-6) {
       drawArrow(O, projVec, getCss("--proj"), 5, 13);
     }
@@ -596,10 +899,10 @@
     drawHandle(va, getCss("--veca"));
     drawHandle(vb, getCss("--vecb"));
 
-    // 7) 标签
+    // 7) 标签(使用当前语言)
     label(va, "a", getCss("--veca"), 8, -4, MATH_FONT);
     label(vb, "b", getCss("--vecb"), 8, -4, MATH_FONT);
-    if (len(projVec) > 0.3) label(scale(projVec, 0.55), "投影", getCss("--proj"), 6, 14);
+    if (len(projVec) > 0.3) label(scale(projVec, 0.55), I18N[lang].canvasProj, getCss("--proj"), 6, 14);
 
     updateDotPanel();
   }
@@ -618,7 +921,6 @@
     var d = (view.xMax - view.xMin) * 0.025;     // 方块边长(世界单位)
     // 让方块朝向原点一侧(沿 -ub 与 perp)
     var sgn = scalarProj(foot, b) >= 0 ? -1 : 1;
-    var c0 = foot;
     var c1 = add(foot, scale(ub, sgn * d));
     var c2 = add(c1, scale(perp, d));
     var c3 = add(foot, scale(perp, d));
@@ -654,29 +956,29 @@
   // ====================================================================
   function drawForceMode() {
     var a = slopeDeg * Math.PI / 180;
-    // 切向(沿斜面)单位向量,法向单位向量(逆时针 90°)
+    // 切向(沿斜面)单位向量，法向单位向量(逆时针 90°)
     var uT = { x: Math.cos(a), y: Math.sin(a) };
     var uN = { x: -Math.sin(a), y: Math.cos(a) };
 
-    // F 在切向、法向上的分量(标量,带符号)
+    // F 在切向、法向上的分量(标量，带符号)
     var fT = dot(vF, uT);
     var fN = dot(vF, uN);
     var compT = scale(uT, fT);   // 切向分量向量
     var compN = scale(uN, fN);   // 法向分量向量
 
-    // 1) 斜面参考线(切向轴,贯穿视窗)
+    // 1) 斜面参考线(切向轴，贯穿视窗)
     var far = Math.max(view.xMax - view.xMin, view.yMax - view.yMin);
     drawSeg(scale(uT, -far), scale(uT, far), getCss("--grid"), 1, [4, 4]);
     drawSeg(scale(uN, -far), scale(uN, far), getCss("--grid"), 1, [4, 4]);
 
-    // 2) 画一个斜面三角形示意(从原点起,沿切向的底)
+    // 2) 画一个斜面三角形示意(从原点起，沿切向的底)
     drawInclineHint(uT, a);
 
     // 3) 平行四边形(矩形)辅助虚线:F = compT + compN
     drawSeg(compT, vF, getCss("--aux"), 1.4, [6, 5]);
     drawSeg(compN, vF, getCss("--aux"), 1.4, [6, 5]);
 
-    // 4) 两个分量(绿=切向,黄=法向)
+    // 4) 两个分量(绿=切向，黄=法向)
     if (Math.abs(fT) > 1e-6) drawArrow(O, compT, getCss("--comp1"), 4, 12);
     if (Math.abs(fN) > 1e-6) drawArrow(O, compN, getCss("--comp2"), 4, 12);
 
@@ -686,27 +988,27 @@
     // 6) 把手
     drawHandle(vF, getCss("--force"));
 
-    // 7) 标签
+    // 7) 标签(使用当前语言)
     label(vF, "F", getCss("--force"), 8, -4, MATH_FONT);
-    if (Math.abs(fT) > 0.4) labelSub(scale(compT, 0.6), "F", "切", getCss("--comp1"), 4, 14);
-    if (Math.abs(fN) > 0.4) labelSub(scale(compN, 0.6), "F", "法", getCss("--comp2"), 6, 0);
+    if (Math.abs(fT) > 0.4) labelSub(scale(compT, 0.6), "F", I18N[lang].canvasTan, getCss("--comp1"), 4, 14);
+    if (Math.abs(fN) > 0.4) labelSub(scale(compN, 0.6), "F", I18N[lang].canvasNorm, getCss("--comp2"), 6, 0);
 
     updateForcePanel(fT, fN, a);
   }
 
-  // 斜面三角形示意(纯几何抽象,非原题图)
+  // 斜面三角形示意(纯几何抽象，非原题图)
   function drawInclineHint(uT, a) {
     var base = Math.min(view.xMax * 0.9, 3.2);
     if (base < 0.5) return;
-    var apex = scale(uT, base);                 // 斜面顶点
-    var footG = { x: base * Math.cos(a), y: 0 };// 水平底边终点的投影点(直角点)
+    var apex = scale(uT, base);                  // 斜面顶点
+    var footG = { x: base * Math.cos(a), y: 0 }; // 水平底边终点的投影点(直角点)
     ctx.strokeStyle = getCss("--axis");
     ctx.lineWidth = 1.2;
     ctx.setLineDash([]);
     ctx.beginPath();
     ctx.moveTo(sx(0), sy(0));
-    ctx.lineTo(sx(footG.x), sy(footG.y));       // 水平底
-    ctx.lineTo(sx(apex.x), sy(apex.y));         // 斜面(切向)
+    ctx.lineTo(sx(footG.x), sy(footG.y));        // 水平底
+    ctx.lineTo(sx(apex.x), sy(apex.y));          // 斜面(切向)
     ctx.closePath();
     ctx.stroke();
   }
@@ -773,7 +1075,7 @@
     return null;
   }
   function applyDrag(w) {
-    // 限制在视窗内,避免拖出
+    // 限制在视窗内，避免拖出
     var x = Math.max(view.xMin + 0.2, Math.min(view.xMax - 0.2, w.x));
     var y = Math.max(view.yMin + 0.2, Math.min(view.yMax - 0.2, w.y));
     if (dragging === "a") { va.x = x; va.y = y; }
@@ -823,9 +1125,7 @@
     btnForce.classList.toggle("active", !isDot);
     dotPanel.classList.toggle("hidden", !isDot);
     forcePanel.classList.toggle("hidden", isDot);
-    subHint.textContent = isDot
-      ? "拖动向量 a(绿)、b(黄)的箭头端点,观察点乘、夹角与 a 在 b 上的投影实时变化。"
-      : "拖动力 F(紫)的箭头端点,或调整斜面倾角 α,观察力沿斜面切向 / 法向的正交分解。";
+    subHint.textContent = isDot ? I18N[lang].subDot : I18N[lang].subForce;
     draw();
   }
   btnDot.addEventListener("click", function () { setMode("dot"); });
@@ -847,13 +1147,13 @@
     setActive("presetOrtho"); va = { x: 3, y: 0 }; vb = { x: 0, y: 4 }; draw();   // a·b = 0
   });
   document.getElementById("presetSame").addEventListener("click", function () {
-    setActive("presetSame"); va = { x: 4, y: 2 }; vb = { x: 2, y: 1 }; draw();    // 同向,θ=0
+    setActive("presetSame"); va = { x: 4, y: 2 }; vb = { x: 2, y: 1 }; draw();    // 同向，θ=0
   });
   document.getElementById("preset60").addEventListener("click", function () {
     setActive("preset60"); va = { x: 4, y: 0 }; vb = { x: 1.5, y: 2.598 }; draw();// b 与 x 轴 60°
   });
   document.getElementById("presetObtuse").addEventListener("click", function () {
-    setActive("presetObtuse"); va = { x: 3, y: 1 }; vb = { x: -3, y: 1 }; draw(); // 钝角,a·b<0
+    setActive("presetObtuse"); va = { x: 3, y: 1 }; vb = { x: -3, y: 1 }; draw(); // 钝角，a·b<0
   });
 
   document.getElementById("presetIncline").addEventListener("click", function () {

@@ -40,9 +40,16 @@
     padding: 16px;
     min-width: 0;
   }
+  .stage-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
   .stage h1 {
     font-size: 18px;
-    margin: 0 0 4px 0;
+    margin: 0;
     font-weight: 600;
   }
   .stage .sub {
@@ -61,6 +68,30 @@
   }
   canvas { display: block; width: 100%; height: 100%; cursor: grab; }
   canvas.dragging { cursor: grabbing; }
+
+  /* 语言切换按钮 */
+  .lang-switch {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .lang-switch button {
+    background: none;
+    border: none;
+    padding: 2px 6px;
+    font-size: 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--muted);
+    transition: color .15s, background .15s;
+  }
+  .lang-switch button:hover { color: var(--ink); background: var(--panel2); }
+  .lang-switch button.active { color: var(--accent); font-weight: 700; background: none; }
+  .lang-switch .sep { color: var(--grid); }
 
   .panel {
     flex: 0 0 340px;
@@ -177,74 +208,81 @@
 <body>
 <div class="app">
   <div class="stage">
-    <h1>导数可视化实验室 — 切线 · 单调性 · 极值</h1>
-    <p class="sub">拖动曲线上的黄点观察切线变化;拖动右侧滑块改变自绘抽象函数 <math><mrow><mi>f</mi><mo>(</mo><mi>x</mi><mo>)</mo><mo>=</mo><mi>a</mi><msup><mi>x</mi><mn>3</mn></msup><mo>+</mo><mi>b</mi><msup><mi>x</mi><mn>2</mn></msup><mo>+</mo><mi>c</mi><mi>x</mi><mo>+</mo><mi>d</mi></mrow></math> 的形状。</p>
+    <div class="stage-header">
+      <h1 id="titleH1">导数可视化实验室 — 切线 · 单调性 · 极值</h1>
+      <div class="lang-switch">
+        <button id="btnZh" class="active" onclick="setLang('zh')">中文</button>
+        <span class="sep">|</span>
+        <button id="btnEn" onclick="setLang('en')">EN</button>
+      </div>
+    </div>
+    <p class="sub" id="subtitle">拖动曲线上的黄点观察切线变化;拖动右侧滑块改变自绘抽象函数 <math><mrow><mi>f</mi><mo>(</mo><mi>x</mi><mo>)</mo><mo>=</mo><mi>a</mi><msup><mi>x</mi><mn>3</mn></msup><mo>+</mo><mi>b</mi><msup><mi>x</mi><mn>2</mn></msup><mo>+</mo><mi>c</mi><mi>x</mi><mo>+</mo><mi>d</mi></mrow></math> 的形状。</p>
     <div class="canvas-wrap">
       <canvas id="cv"></canvas>
     </div>
   </div>
 
   <aside class="panel">
-    <h2>函数表达式</h2>
+    <h2 id="h2Expr">函数表达式</h2>
     <div class="expr"><span id="exprF"></span></div>
     <div class="expr"><span id="exprDf"></span></div>
 
-    <h2>当前点 <math><msub><mi>x</mi><mn>0</mn></msub></math>（拖动黄点）</h2>
+    <h2 id="h2Current">当前点 <math><msub><mi>x</mi><mn>0</mn></msub></math>（拖动黄点）</h2>
     <div class="readout">
       <div><span class="k"><math><msub><mi>x</mi><mn>0</mn></msub></math></span><span class="v" id="roX">0.000</span></div>
-      <div><span class="k"><math><mrow><mi>f</mi><mo>(</mo><msub><mi>x</mi><mn>0</mn></msub><mo>)</mo></mrow></math>（函数值）</span><span class="v" id="roFx">0.000</span></div>
-      <div><span class="k"><math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><msub><mi>x</mi><mn>0</mn></msub><mo>)</mo></mrow></math>（切线斜率）</span><span class="v" id="roDfx">−3.000</span></div>
-      <div><span class="k">切线在该点的趋势</span><span class="v" id="roTrend">递减</span></div>
+      <div><span class="k"><math><mrow><mi>f</mi><mo>(</mo><msub><mi>x</mi><mn>0</mn></msub><mo>)</mo></mrow></math><span id="lblFx">（函数值）</span></span><span class="v" id="roFx">0.000</span></div>
+      <div><span class="k"><math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><msub><mi>x</mi><mn>0</mn></msub><mo>)</mo></mrow></math><span id="lblDfx">（切线斜率）</span></span><span class="v" id="roDfx">−3.000</span></div>
+      <div><span class="k" id="lblTrendKey">切线在该点的趋势</span><span class="v" id="roTrend">递减</span></div>
     </div>
 
-    <h2>极值点（<math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><mi>x</mi><mo>)</mo><mo>=</mo><mn>0</mn></mrow></math>）</h2>
+    <h2 id="h2Extrema">极值点（<math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><mi>x</mi><mo>)</mo><mo>=</mo><mn>0</mn></mrow></math>）</h2>
     <div class="readout" id="extremaBox">
-      <div><span class="k"><span class="swatch" style="background:var(--maxpt)"></span>极大值</span><span class="v" id="roMax">—</span></div>
-      <div><span class="k"><span class="swatch" style="background:var(--minpt)"></span>极小值</span><span class="v" id="roMin">—</span></div>
+      <div><span class="k"><span class="swatch" style="background:var(--maxpt)"></span><span id="lblMax">极大值</span></span><span class="v" id="roMax">—</span></div>
+      <div><span class="k"><span class="swatch" style="background:var(--minpt)"></span><span id="lblMin">极小值</span></span><span class="v" id="roMin">—</span></div>
     </div>
 
-    <h2>调整函数参数</h2>
+    <h2 id="h2Params">调整函数参数</h2>
     <div class="slider-row">
-      <div class="head"><span class="name">a（三次项）</span><span class="num" id="numA">1.00</span></div>
+      <div class="head"><span class="name" id="lblA">a（三次项）</span><span class="num" id="numA">1.00</span></div>
       <input type="range" id="sA" min="-2" max="2" step="0.05" value="1">
     </div>
     <div class="slider-row">
-      <div class="head"><span class="name">b（二次项）</span><span class="num" id="numB">0.00</span></div>
+      <div class="head"><span class="name" id="lblB">b（二次项）</span><span class="num" id="numB">0.00</span></div>
       <input type="range" id="sB" min="-3" max="3" step="0.05" value="0">
     </div>
     <div class="slider-row">
-      <div class="head"><span class="name">c（一次项）</span><span class="num" id="numC">-3.00</span></div>
+      <div class="head"><span class="name" id="lblC">c（一次项）</span><span class="num" id="numC">-3.00</span></div>
       <input type="range" id="sC" min="-6" max="6" step="0.05" value="-3">
     </div>
     <div class="slider-row">
-      <div class="head"><span class="name">d（常数项）</span><span class="num" id="numD">0.00</span></div>
+      <div class="head"><span class="name" id="lblD">d（常数项）</span><span class="num" id="numD">0.00</span></div>
       <input type="range" id="sD" min="-5" max="5" step="0.05" value="0">
     </div>
     <div class="btn-row">
       <button id="presetCubic" class="active">x³−3x</button>
-      <button id="presetW">双井形</button>
-      <button id="presetMono">恒增</button>
-      <button id="resetView">重置视图</button>
+      <button id="presetW"></button>
+      <button id="presetMono"></button>
+      <button id="resetView"></button>
     </div>
 
-    <h2>图例与说明</h2>
-    <div class="legend">
-      <span class="swatch" style="background:var(--inc)"></span>曲线<b style="color:var(--inc)">绿色段</b>:<math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><mi>x</mi><mo>)</mo><mo>&gt;</mo><mn>0</mn></mrow></math>,函数<b>单调递增</b><br>
-      <span class="swatch" style="background:var(--dec)"></span>曲线<b style="color:var(--dec)">红色段</b>:<math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><mi>x</mi><mo>)</mo><mo>&lt;</mo><mn>0</mn></mrow></math>,函数<b>单调递减</b><br>
-      <span class="swatch" style="background:var(--tangent)"></span>黄色直线:当前点处的<b>切线</b>,斜率 = <math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><msub><mi>x</mi><mn>0</mn></msub><mo>)</mo></mrow></math><br>
-      <span class="swatch" style="background:var(--maxpt)"></span>红点:<b>极大值</b>点(导数由正变负)<br>
-      <span class="swatch" style="background:var(--minpt)"></span>蓝点:<b>极小值</b>点(导数由负变正)
+    <h2 id="h2Legend">图例与说明</h2>
+    <div class="legend" id="legendBox">
+      <span class="swatch" style="background:var(--inc)"></span><span id="lgInc">曲线<b style="color:var(--inc)">绿色段</b>:<math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><mi>x</mi><mo>)</mo><mo>&gt;</mo><mn>0</mn></mrow></math>,函数<b>单调递增</b></span><br>
+      <span class="swatch" style="background:var(--dec)"></span><span id="lgDec">曲线<b style="color:var(--dec)">红色段</b>:<math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><mi>x</mi><mo>)</mo><mo>&lt;</mo><mn>0</mn></mrow></math>,函数<b>单调递减</b></span><br>
+      <span class="swatch" style="background:var(--tangent)"></span><span id="lgTangent">黄色直线:当前点处的<b>切线</b>,斜率 = <math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><msub><mi>x</mi><mn>0</mn></msub><mo>)</mo></mrow></math></span><br>
+      <span class="swatch" style="background:var(--maxpt)"></span><span id="lgMax">红点:<b>极大值</b>点(导数由正变负)</span><br>
+      <span class="swatch" style="background:var(--minpt)"></span><span id="lgMin">蓝点:<b>极小值</b>点(导数由负变正)</span>
     </div>
 
-    <h2>导数告诉我们什么</h2>
-    <p class="note">
+    <h2 id="h2Explain">导数告诉我们什么</h2>
+    <p class="note" id="explainBox">
       导数 <b><math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><msub><mi>x</mi><mn>0</mn></msub><mo>)</mo></mrow></math></b> 的几何意义是曲线在点 <math><mrow><mo>(</mo><msub><mi>x</mi><mn>0</mn></msub><mo>,</mo><mi>f</mi><mo>(</mo><msub><mi>x</mi><mn>0</mn></msub><mo>)</mo><mo>)</mo></mrow></math> 处<b>切线的斜率</b>。<br>
       · 当 <math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><mi>x</mi><mo>)</mo></mrow></math> <b>&gt; 0</b>,切线向上倾斜,函数在此<b>单调递增</b>(绿色)。<br>
       · 当 <math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><mi>x</mi><mo>)</mo></mrow></math> <b>&lt; 0</b>,切线向下倾斜,函数在此<b>单调递减</b>(红色)。<br>
       · 当 <math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><mi>x</mi><mo>)</mo></mrow></math> <b>= 0</b> 且左右符号改变,该点为<b>极值点</b>:由 + 变 − 是极大值,由 − 变 + 是极小值。
     </p>
 
-    <div class="compliance">
+    <div class="compliance" id="complianceBox">
       合规声明:本 demo 仅使用<b>自绘抽象函数与可调参数</b>(三次多项式族)做概念可视化,
       未复制任何高考原题文字、原卷图片或答案图,不是题目搬运。
     </div>
@@ -254,6 +292,197 @@
 <script>
 (function () {
   "use strict";
+
+  // ========== i18n 字典 ==========
+  var I18N = {
+    zh: {
+      docTitle:    "导数可视化实验室 · 切线 / 单调性 / 极值",
+      titleH1:     "导数可视化实验室 — 切线 · 单调性 · 极值",
+      subtitle:    "拖动曲线上的黄点观察切线变化;拖动右侧滑块改变自绘抽象函数",
+      // 侧栏小标题
+      h2Expr:      "函数表达式",
+      h2Current:   "当前点",
+      h2CurrentSuffix: "（拖动黄点）",
+      h2Extrema:   "极值点",
+      h2Params:    "调整函数参数",
+      h2Legend:    "图例与说明",
+      h2Explain:   "导数告诉我们什么",
+      // 读数标签
+      lblFx:       "（函数值）",
+      lblDfx:      "（切线斜率）",
+      lblTrendKey: "切线在该点的趋势",
+      lblMax:      "极大值",
+      lblMin:      "极小值",
+      // 趋势词
+      trendInc:    "递增 ↑",
+      trendDec:    "递减 ↓",
+      trendFlat:   "水平 →（切线斜率为 0）",
+      // 极值读数
+      roNone:      "无",
+      // 参数滑块名
+      lblA: "a（三次项）",
+      lblB: "b（二次项）",
+      lblC: "c（一次项）",
+      lblD: "d（常数项）",
+      // 预设按钮
+      presetW:     "双井形",
+      presetMono:  "恒增",
+      resetView:   "重置视图",
+      // canvas 内极值标注
+      canvasMax:   "极大值",
+      canvasMin:   "极小值",
+      // 图例
+      lgInc:    '曲线<b style="color:var(--inc)">绿色段</b>:<math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><mi>x</mi><mo>)</mo><mo>&gt;</mo><mn>0</mn></mrow></math>,函数<b>单调递增</b>',
+      lgDec:    '曲线<b style="color:var(--dec)">红色段</b>:<math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><mi>x</mi><mo>)</mo><mo>&lt;</mo><mn>0</mn></mrow></math>,函数<b>单调递减</b>',
+      lgTangent:'黄色直线:当前点处的<b>切线</b>,斜率 = <math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><msub><mi>x</mi><mn>0</mn></msub><mo>)</mo></mrow></math>',
+      lgMax:    '红点:<b>极大值</b>点(导数由正变负)',
+      lgMin:    '蓝点:<b>极小值</b>点(导数由负变正)',
+      // 说明段落
+      explain: '导数 <b><math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><msub><mi>x</mi><mn>0</mn></msub><mo>)</mo></mrow></math></b> 的几何意义是曲线在点 <math><mrow><mo>(</mo><msub><mi>x</mi><mn>0</mn></msub><mo>,</mo><mi>f</mi><mo>(</mo><msub><mi>x</mi><mn>0</mn></msub><mo>)</mo><mo>)</mo></mrow></math> 处<b>切线的斜率</b>。<br>'
+             + '· 当 <math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><mi>x</mi><mo>)</mo></mrow></math> <b>&gt; 0</b>,切线向上倾斜,函数在此<b>单调递增</b>(绿色)。<br>'
+             + '· 当 <math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><mi>x</mi><mo>)</mo></mrow></math> <b>&lt; 0</b>,切线向下倾斜,函数在此<b>单调递减</b>(红色)。<br>'
+             + '· 当 <math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><mi>x</mi><mo>)</mo></mrow></math> <b>= 0</b> 且左右符号改变,该点为<b>极值点</b>:由 + 变 − 是极大值,由 − 变 + 是极小值。',
+      // 合规声明
+      compliance: '合规声明:本 demo 仅使用<b>自绘抽象函数与可调参数</b>(三次多项式族)做概念可视化,未复制任何高考原题文字、原卷图片或答案图,不是题目搬运。'
+    },
+    en: {
+      docTitle:    "Derivative Visual Lab · Tangent / Monotonicity / Extrema",
+      titleH1:     "Derivative Visual Lab — Tangent · Monotonicity · Extrema",
+      subtitle:    "Drag the yellow dot on the curve to observe the tangent; use the sliders to reshape the abstract function",
+      // panel headings
+      h2Expr:      "Function Expression",
+      h2Current:   "Current Point",
+      h2CurrentSuffix: "(drag the yellow dot)",
+      h2Extrema:   "Extrema",
+      h2Params:    "Adjust Parameters",
+      h2Legend:    "Legend & Notes",
+      h2Explain:   "What the Derivative Tells Us",
+      // readout labels
+      lblFx:       " (function value)",
+      lblDfx:      " (tangent slope)",
+      lblTrendKey: "Tangent trend at this point",
+      lblMax:      "Local maximum",
+      lblMin:      "Local minimum",
+      // trend words
+      trendInc:    "Increasing ↑",
+      trendDec:    "Decreasing ↓",
+      trendFlat:   "Horizontal →  (slope = 0)",
+      // extrema readout
+      roNone:      "none",
+      // slider labels
+      lblA: "a (cubic term)",
+      lblB: "b (quadratic term)",
+      lblC: "c (linear term)",
+      lblD: "d (constant term)",
+      // preset buttons
+      presetW:    "Double-well",
+      presetMono: "Always increasing",
+      resetView:  "Reset view",
+      // canvas extrema labels
+      canvasMax:  "local max",
+      canvasMin:  "local min",
+      // legend
+      lgInc:    'Curve <b style="color:var(--inc)">green segment</b>: <math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><mi>x</mi><mo>)</mo><mo>&gt;</mo><mn>0</mn></mrow></math>, function is <b>monotonically increasing</b>',
+      lgDec:    'Curve <b style="color:var(--dec)">red segment</b>: <math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><mi>x</mi><mo>)</mo><mo>&lt;</mo><mn>0</mn></mrow></math>, function is <b>monotonically decreasing</b>',
+      lgTangent:'Yellow line: <b>tangent</b> at current point, slope = <math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><msub><mi>x</mi><mn>0</mn></msub><mo>)</mo></mrow></math>',
+      lgMax:    'Red dot: <b>local maximum</b> (derivative changes from + to −)',
+      lgMin:    'Blue dot: <b>local minimum</b> (derivative changes from − to +)',
+      // explain paragraph
+      explain: 'The derivative <b><math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><msub><mi>x</mi><mn>0</mn></msub><mo>)</mo></mrow></math></b> is the <b>slope of the tangent line</b> to the curve at the point <math><mrow><mo>(</mo><msub><mi>x</mi><mn>0</mn></msub><mo>,</mo><mi>f</mi><mo>(</mo><msub><mi>x</mi><mn>0</mn></msub><mo>)</mo><mo>)</mo></mrow></math>.<br>'
+             + '· When <math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><mi>x</mi><mo>)</mo></mrow></math> <b>&gt; 0</b>, the tangent slopes upward — the function is <b>monotonically increasing</b> (green).<br>'
+             + '· When <math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><mi>x</mi><mo>)</mo></mrow></math> <b>&lt; 0</b>, the tangent slopes downward — the function is <b>monotonically decreasing</b> (red).<br>'
+             + '· When <math><mrow><msup><mi>f</mi><mo>&#x2032;</mo></msup><mo>(</mo><mi>x</mi><mo>)</mo></mrow></math> <b>= 0</b> with a sign change on each side, that point is an <b>extremum</b>: + to − gives a local maximum; − to + gives a local minimum.',
+      // compliance
+      compliance: 'Disclaimer: This demo uses only <b>abstract, self-drawn functions with adjustable parameters</b> (cubic polynomial family) for conceptual visualization. No original exam questions, scanned papers, or answer images have been reproduced.'
+    }
+  };
+
+  // 当前语言,默认中文
+  var currentLang = "zh";
+
+  // ========== 语言切换 ==========
+  window.setLang = function (lang) {
+    if (lang === currentLang) return;
+    currentLang = lang;
+    document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
+    document.getElementById("btnZh").classList.toggle("active", lang === "zh");
+    document.getElementById("btnEn").classList.toggle("active", lang === "en");
+    applyLang();
+    // 重绘 canvas(canvas 内的文字标注也要跟语言走)
+    draw();
+  };
+
+  function t(key) { return I18N[currentLang][key]; }
+
+  function applyLang() {
+    var L = I18N[currentLang];
+    document.title = L.docTitle;
+    document.getElementById("titleH1").textContent = L.titleH1;
+
+    // subtitle:含 MathML,不能用 textContent — 用 innerHTML 只替换前缀文字
+    // 副标题结构:文字 + MathML,将文字节点单独 id 化的方案最安全
+    // 此处将副标题拆分为文字前缀 + MathML 尾部(MathML 语言中立,不变)
+    var subEl = document.getElementById("subtitle");
+    // 保留 MathML 子节点,只替换前面的文字节点
+    var mathNode = subEl.querySelector("math");
+    subEl.innerHTML = "";
+    subEl.appendChild(document.createTextNode(L.subtitle + " "));
+    if (mathNode) subEl.appendChild(mathNode);
+    var tail = currentLang === "zh" ? " 的形状。" : " (shape controlled by sliders).";
+    subEl.appendChild(document.createTextNode(tail));
+
+    // 侧栏 h2 — 含 MathML 的需特殊处理
+    document.getElementById("h2Expr").textContent = L.h2Expr;
+
+    // h2Current 含 MathML(<math><msub>…</math> 后接文字)
+    var h2c = document.getElementById("h2Current");
+    var mathH2c = h2c.querySelector("math");
+    h2c.innerHTML = "";
+    h2c.appendChild(document.createTextNode(L.h2Current + " "));
+    if (mathH2c) h2c.appendChild(mathH2c);
+    h2c.appendChild(document.createTextNode(L.h2CurrentSuffix));
+
+    // h2Extrema 含 MathML
+    var h2e = document.getElementById("h2Extrema");
+    var mathH2e = h2e.querySelector("math");
+    h2e.innerHTML = "";
+    h2e.appendChild(document.createTextNode(L.h2Extrema + "（"));
+    if (mathH2e) h2e.appendChild(mathH2e);
+    h2e.appendChild(document.createTextNode("）"));
+
+    document.getElementById("h2Params").textContent  = L.h2Params;
+    document.getElementById("h2Legend").textContent  = L.h2Legend;
+    document.getElementById("h2Explain").textContent = L.h2Explain;
+
+    // 读数标签
+    document.getElementById("lblFx").textContent       = L.lblFx;
+    document.getElementById("lblDfx").textContent      = L.lblDfx;
+    document.getElementById("lblTrendKey").textContent  = L.lblTrendKey;
+    document.getElementById("lblMax").textContent       = L.lblMax;
+    document.getElementById("lblMin").textContent       = L.lblMin;
+
+    // 参数滑块名
+    document.getElementById("lblA").textContent = L.lblA;
+    document.getElementById("lblB").textContent = L.lblB;
+    document.getElementById("lblC").textContent = L.lblC;
+    document.getElementById("lblD").textContent = L.lblD;
+
+    // 预设按钮(x³−3x 名称语言中立,无需切换)
+    document.getElementById("presetW").textContent    = L.presetW;
+    document.getElementById("presetMono").textContent = L.presetMono;
+    document.getElementById("resetView").textContent  = L.resetView;
+
+    // 图例
+    document.getElementById("lgInc").innerHTML     = L.lgInc;
+    document.getElementById("lgDec").innerHTML     = L.lgDec;
+    document.getElementById("lgTangent").innerHTML = L.lgTangent;
+    document.getElementById("lgMax").innerHTML     = L.lgMax;
+    document.getElementById("lgMin").innerHTML     = L.lgMin;
+
+    // 说明段落 & 合规声明
+    document.getElementById("explainBox").innerHTML    = L.explain;
+    document.getElementById("complianceBox").innerHTML = L.compliance;
+  }
 
   // ---------- 状态:自绘抽象函数 f(x) = a x^3 + b x^2 + c x + d ----------
   var coef = { a: 1, b: 0, c: -3, d: 0 };
@@ -473,8 +702,9 @@
       ctx.fillText(text + " (" + fmt(p.x) + ", " + fmt(p.y) + ")", px, py - 9);
       ctx.textAlign = "left";
     }
-    ex.maxima.forEach(function (p){ dot(p, getCss("--maxpt"), "极大值"); });
-    ex.minima.forEach(function (p){ dot(p, getCss("--minpt"), "极小值"); });
+    // canvas 内的极值标注随语言切换
+    ex.maxima.forEach(function (p){ dot(p, getCss("--maxpt"), t("canvasMax")); });
+    ex.minima.forEach(function (p){ dot(p, getCss("--minpt"), t("canvasMin")); });
     return ex;
   }
 
@@ -496,13 +726,16 @@
     document.getElementById("roFx").textContent = fmt(f(x0));
     var k = df(x0);
     document.getElementById("roDfx").textContent = fmt(k);
-    var trend = k > 1e-6 ? "递增 ↑" : (k < -1e-6 ? "递减 ↓" : "水平 →（切线斜率为 0）");
+
+    // 趋势词随语言切换
+    var trend = k > 1e-6 ? t("trendInc") : (k < -1e-6 ? t("trendDec") : t("trendFlat"));
     document.getElementById("roTrend").textContent = trend;
 
+    var none = t("roNone");
     document.getElementById("roMax").textContent = ex.maxima.length
-      ? ex.maxima.map(function(p){ return "x=" + fmt(p.x) + ", y=" + fmt(p.y); }).join("; ") : "无";
+      ? ex.maxima.map(function(p){ return "x=" + fmt(p.x) + ", y=" + fmt(p.y); }).join("; ") : none;
     document.getElementById("roMin").textContent = ex.minima.length
-      ? ex.minima.map(function(p){ return "x=" + fmt(p.x) + ", y=" + fmt(p.y); }).join("; ") : "无";
+      ? ex.minima.map(function(p){ return "x=" + fmt(p.x) + ", y=" + fmt(p.y); }).join("; ") : none;
   }
 
   // 把数值渲染成 MathML <mn>(负号已在符号处单独输出,这里只取量值;减号用 U+2212)
@@ -541,8 +774,8 @@
     ];
     var first = true, body = "";
     for (var i = 0; i < seq.length; i++) {
-      var t = term(seq[i].v, seq[i].s, first);
-      if (t) { body += t; first = false; }
+      var tt = term(seq[i].v, seq[i].s, first);
+      if (tt) { body += tt; first = false; }
     }
     return wrapMath(LBL_F, body);
   }
@@ -555,8 +788,8 @@
     ];
     var first = true, body = "";
     for (var i = 0; i < seq.length; i++) {
-      var t = term(seq[i].v, seq[i].s, first);
-      if (t) { body += t; first = false; }
+      var tt = term(seq[i].v, seq[i].s, first);
+      if (tt) { body += tt; first = false; }
     }
     return wrapMath(LBL_DF, body);
   }
@@ -660,6 +893,8 @@
   });
 
   // ---------- 启动 ----------
+  // 初始化语言(中文),渲染按钮文字等纯文案元素
+  applyLang();
   window.addEventListener("resize", resize);
   resize();
 })();

@@ -43,6 +43,14 @@
     padding: 16px;
     min-width: 0;
   }
+  .stage-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .stage-header-text { flex: 1 1 auto; min-width: 0; }
   .stage h1 {
     font-size: 18px;
     margin: 0 0 4px 0;
@@ -51,7 +59,7 @@
   .stage .sub {
     color: var(--muted);
     font-size: 13px;
-    margin: 0 0 12px 0;
+    margin: 0;
   }
   .canvas-wrap {
     position: relative;
@@ -64,6 +72,31 @@
   }
   canvas { display: block; width: 100%; height: 100%; cursor: grab; }
   canvas.dragging { cursor: grabbing; }
+
+  /* 语言切换 */
+  .lang-switch {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 0;
+    font-size: 13px;
+    white-space: nowrap;
+    margin-top: 2px;
+  }
+  .lang-switch button {
+    background: none;
+    border: 1px solid var(--grid);
+    color: var(--muted);
+    padding: 4px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: color .15s, border-color .15s, background .15s;
+    border-radius: 0;
+  }
+  .lang-switch button:first-child { border-radius: 6px 0 0 6px; }
+  .lang-switch button:last-child  { border-radius: 0 6px 6px 0; border-left: none; }
+  .lang-switch button.active { color: var(--accent); border-color: var(--accent); background: rgba(79,195,247,.08); }
+  .lang-switch button:hover:not(.active) { color: var(--ink); border-color: var(--muted); }
 
   .panel {
     flex: 0 0 348px;
@@ -163,16 +196,24 @@
 <body>
 <div class="app">
   <div class="stage">
-    <h1>抛体运动可视化实验室 — 速度分解 · 轨迹 · 落点预测</h1>
-    <p class="sub">伪 3D 透视场景:小球从发射点沿抛物线飞行。拖动轨迹上的橙点(或拖时间滑块)查看任意时刻的速度分解;右侧滑块改变发射条件。</p>
+    <div class="stage-header">
+      <div class="stage-header-text">
+        <h1 id="i18n-title">抛体运动可视化实验室 — 速度分解 · 轨迹 · 落点预测</h1>
+        <p class="sub" id="i18n-sub">伪 3D 透视场景:小球从发射点沿抛物线飞行。拖动轨迹上的橙点(或拖时间滑块)查看任意时刻的速度分解;右侧滑块改变发射条件。</p>
+      </div>
+      <div class="lang-switch">
+        <button id="btnZh" class="active" onclick="setLang('zh')">中文</button>
+        <button id="btnEn" onclick="setLang('en')">EN</button>
+      </div>
+    </div>
     <div class="canvas-wrap">
       <canvas id="cv"></canvas>
     </div>
   </div>
 
   <aside class="panel">
-    <h2>运动方程(自绘抽象模型)</h2>
-    <div class="expr">水平(匀速):<br>
+    <h2 id="i18n-h-eq">运动方程(自绘抽象模型)</h2>
+    <div class="expr"><span id="i18n-eq-horiz">水平(匀速)</span>:<br>
       <math xmlns="http://www.w3.org/1998/Math/MathML">
         <mrow>
           <mi>x</mi><mo>(</mo><mi>t</mi><mo>)</mo><mo>=</mo>
@@ -181,7 +222,7 @@
         </mrow>
       </math>
     </div>
-    <div class="expr">竖直(匀变速):<br>
+    <div class="expr"><span id="i18n-eq-vert">竖直(匀变速)</span>:<br>
       <math xmlns="http://www.w3.org/1998/Math/MathML">
         <mrow>
           <mi>y</mi><mo>(</mo><mi>t</mi><mo>)</mo><mo>=</mo>
@@ -199,7 +240,7 @@
           <msub><mi>v</mi><mi>x</mi></msub><mo>=</mo>
           <msub><mi>v</mi><mn>0</mn></msub><mo>&#x22C5;</mo><mi>cos</mi><mi>&#x3B8;</mi>
         </mrow>
-      </math>(恒定) &nbsp;
+      </math>(<span id="i18n-constant">恒定</span>) &nbsp;
       <math xmlns="http://www.w3.org/1998/Math/MathML">
         <mrow>
           <msub><mi>v</mi><mi>y</mi></msub><mo>=</mo>
@@ -209,25 +250,25 @@
       </math>
     </div>
 
-    <h2>当前时刻 t(拖橙点 / 滑块)</h2>
+    <h2 id="i18n-h-moment">当前时刻 t(拖橙点 / 滑块)</h2>
     <div class="slider-row">
-      <div class="head"><span class="name">时间 t</span><span class="num" id="numT">0.00 s</span></div>
+      <div class="head"><span class="name" id="i18n-label-t">时间 t</span><span class="num" id="numT">0.00 s</span></div>
       <input type="range" id="sT" min="0" max="1" step="0.001" value="0">
     </div>
     <div class="readout">
-      <div><span class="k">位置 (x, y)</span><span class="v" id="roPos">—</span></div>
-      <div><span class="k"><span class="swatch" style="background:var(--vx)"></span>水平分量 <math xmlns="http://www.w3.org/1998/Math/MathML"><msub><mi>v</mi><mi>x</mi></msub></math></span><span class="v" id="roVx">—</span></div>
-      <div><span class="k"><span class="swatch" style="background:var(--vy)"></span>竖直分量 <math xmlns="http://www.w3.org/1998/Math/MathML"><msub><mi>v</mi><mi>y</mi></msub></math></span><span class="v" id="roVy">—</span></div>
-      <div><span class="k"><span class="swatch" style="background:var(--vfull)"></span>合速度 <math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mo>|</mo><mi>v</mi><mo>|</mo></mrow></math></span><span class="v" id="roV">—</span></div>
-      <div><span class="k">速度方向(与水平)</span><span class="v" id="roAng">—</span></div>
+      <div><span class="k" id="i18n-ro-pos">位置 (x, y)</span><span class="v" id="roPos">—</span></div>
+      <div><span class="k"><span class="swatch" style="background:var(--vx)"></span><span id="i18n-ro-vx">水平分量</span> <math xmlns="http://www.w3.org/1998/Math/MathML"><msub><mi>v</mi><mi>x</mi></msub></math></span><span class="v" id="roVx">—</span></div>
+      <div><span class="k"><span class="swatch" style="background:var(--vy)"></span><span id="i18n-ro-vy">竖直分量</span> <math xmlns="http://www.w3.org/1998/Math/MathML"><msub><mi>v</mi><mi>y</mi></msub></math></span><span class="v" id="roVy">—</span></div>
+      <div><span class="k"><span class="swatch" style="background:var(--vfull)"></span><span id="i18n-ro-v">合速度</span> <math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mo>|</mo><mi>v</mi><mo>|</mo></mrow></math></span><span class="v" id="roV">—</span></div>
+      <div><span class="k" id="i18n-ro-ang">速度方向(与水平)</span><span class="v" id="roAng">—</span></div>
     </div>
 
-    <h2>落点预测与轨迹特征</h2>
+    <h2 id="i18n-h-predict">落点预测与轨迹特征</h2>
     <div class="readout">
-      <div><span class="k"><span class="swatch" style="background:var(--land)"></span>飞行时间 T</span><span class="v" id="roT">—</span></div>
-      <div><span class="k"><span class="swatch" style="background:var(--land)"></span>水平射程 R</span><span class="v" id="roR">—</span></div>
-      <div><span class="k"><span class="swatch" style="background:var(--apex)"></span>最大高度 H</span><span class="v" id="roH">—</span></div>
-      <div><span class="k">落地速度 <math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mo>|</mo><mi>v</mi><mo>|</mo></mrow></math></span><span class="v" id="roVland">—</span></div>
+      <div><span class="k"><span class="swatch" style="background:var(--land)"></span><span id="i18n-ro-T">飞行时间 T</span></span><span class="v" id="roT">—</span></div>
+      <div><span class="k"><span class="swatch" style="background:var(--land)"></span><span id="i18n-ro-R">水平射程 R</span></span><span class="v" id="roR">—</span></div>
+      <div><span class="k"><span class="swatch" style="background:var(--apex)"></span><span id="i18n-ro-H">最大高度 H</span></span><span class="v" id="roH">—</span></div>
+      <div><span class="k" id="i18n-ro-vland">落地速度 <math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mo>|</mo><mi>v</mi><mo>|</mo></mrow></math></span><span class="v" id="roVland">—</span></div>
     </div>
     <div class="expr">
       <math xmlns="http://www.w3.org/1998/Math/MathML">
@@ -274,55 +315,55 @@
       </math>
     </div>
 
-    <h2>发射条件(滑块)</h2>
+    <h2 id="i18n-h-launch">发射条件(滑块)</h2>
     <div class="slider-row">
-      <div class="head"><span class="name">初速度 v₀ (m/s)</span><span class="num" id="numV0">20.0</span></div>
+      <div class="head"><span class="name" id="i18n-slider-v0">初速度 v₀ (m/s)</span><span class="num" id="numV0">20.0</span></div>
       <input type="range" id="sV0" min="2" max="40" step="0.5" value="20">
     </div>
     <div class="slider-row">
-      <div class="head"><span class="name">抛射角 θ (°)</span><span class="num" id="numTh">45</span></div>
+      <div class="head"><span class="name" id="i18n-slider-th">抛射角 θ (°)</span><span class="num" id="numTh">45</span></div>
       <input type="range" id="sTh" min="0" max="90" step="1" value="45">
     </div>
     <div class="slider-row">
-      <div class="head"><span class="name">重力加速度 g (m/s²)</span><span class="num" id="numG">9.8</span></div>
+      <div class="head"><span class="name" id="i18n-slider-g">重力加速度 g (m/s²)</span><span class="num" id="numG">9.8</span></div>
       <input type="range" id="sG" min="1.6" max="20" step="0.1" value="9.8">
     </div>
     <div class="slider-row">
-      <div class="head"><span class="name">初始高度 h₀ (m)</span><span class="num" id="numH0">0.0</span></div>
+      <div class="head"><span class="name" id="i18n-slider-h0">初始高度 h₀ (m)</span><span class="num" id="numH0">0.0</span></div>
       <input type="range" id="sH0" min="0" max="40" step="0.5" value="0">
     </div>
 
-    <h2>预设 / 动画</h2>
+    <h2 id="i18n-h-preset">预设 / 动画</h2>
     <div class="btn-row">
-      <button id="presetFlat">平抛 (θ=0)</button>
-      <button id="preset45" class="active">斜抛 45°</button>
-      <button id="presetHigh">大角度 75°</button>
+      <button id="presetFlat" data-i18n="preset-flat">平抛 (θ=0)</button>
+      <button id="preset45" class="active" data-i18n="preset-45">斜抛 45°</button>
+      <button id="presetHigh" data-i18n="preset-high">大角度 75°</button>
     </div>
     <div class="btn-row">
-      <button id="presetMoon">低重力 (g=1.6)</button>
-      <button id="btnPlay" class="play">▶ 播放</button>
-      <button id="btnReset">重置视图</button>
+      <button id="presetMoon" data-i18n="preset-moon">低重力 (g=1.6)</button>
+      <button id="btnPlay" class="play" data-i18n-play="true">▶ 播放</button>
+      <button id="btnReset" data-i18n="btn-reset">重置视图</button>
     </div>
 
-    <h2>图例</h2>
-    <div class="legend">
-      <span class="swatch" style="background:var(--traj)"></span>黄色弧线:<b style="color:var(--traj)">抛物线轨迹</b>(合运动)<br>
-      <span class="swatch" style="background:var(--vx)"></span>绿色箭头:<b style="color:var(--vx)">水平分量 <math xmlns="http://www.w3.org/1998/Math/MathML"><msub><mi>v</mi><mi>x</mi></msub></math></b>,大小不变 → 匀速<br>
-      <span class="swatch" style="background:var(--vy)"></span>红色箭头:<b style="color:var(--vy)">竖直分量 <math xmlns="http://www.w3.org/1998/Math/MathML"><msub><mi>v</mi><mi>y</mi></msub></math></b>,随时间变 → 匀变速<br>
-      <span class="swatch" style="background:var(--vfull)"></span>蓝色箭头:<b style="color:var(--vfull)">合速度 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>v</mi></math></b>,与轨迹相切<br>
-      <span class="swatch" style="background:var(--apex)"></span>紫点:<b style="color:var(--apex)">最高点</b> &nbsp;
-      <span class="swatch" style="background:var(--land)"></span>红点:<b style="color:var(--land)">落地点</b>
+    <h2 id="i18n-h-legend">图例</h2>
+    <div class="legend" id="i18n-legend-block">
+      <span class="swatch" style="background:var(--traj)"></span><span id="i18n-leg-traj">黄色弧线:<b style="color:var(--traj)">抛物线轨迹</b>(合运动)</span><br>
+      <span class="swatch" style="background:var(--vx)"></span><span id="i18n-leg-vx">绿色箭头:<b style="color:var(--vx)">水平分量 <math xmlns="http://www.w3.org/1998/Math/MathML"><msub><mi>v</mi><mi>x</mi></msub></math></b>,大小不变 → 匀速</span><br>
+      <span class="swatch" style="background:var(--vy)"></span><span id="i18n-leg-vy">红色箭头:<b style="color:var(--vy)">竖直分量 <math xmlns="http://www.w3.org/1998/Math/MathML"><msub><mi>v</mi><mi>y</mi></msub></math></b>,随时间变 → 匀变速</span><br>
+      <span class="swatch" style="background:var(--vfull)"></span><span id="i18n-leg-v">蓝色箭头:<b style="color:var(--vfull)">合速度 <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>v</mi></math></b>,与轨迹相切</span><br>
+      <span class="swatch" style="background:var(--apex)"></span><span id="i18n-leg-apex">紫点:<b style="color:var(--apex)">最高点</b></span> &nbsp;
+      <span class="swatch" style="background:var(--land)"></span><span id="i18n-leg-land">红点:<b style="color:var(--land)">落地点</b></span>
     </div>
 
-    <h2>抛体运动告诉我们什么</h2>
-    <p class="note">
+    <h2 id="i18n-h-insight">抛体运动告诉我们什么</h2>
+    <p class="note" id="i18n-note">
       抛体运动可<b>分解为两个独立的直线运动</b>:<br>
       · <b>水平方向</b>:不受力(忽略空气阻力),做<b>匀速直线运动</b>,<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><msub><mi>v</mi><mi>x</mi></msub><mo>=</mo><msub><mi>v</mi><mn>0</mn></msub><mi>cos</mi><mi>&#x3B8;</mi></mrow></math> 始终不变(绿色箭头长度恒定)。<br>
       · <b>竖直方向</b>:只受重力,做<b>匀变速运动</b>,<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><msub><mi>v</mi><mi>y</mi></msub><mo>=</mo><msub><mi>v</mi><mn>0</mn></msub><mi>sin</mi><mi>&#x3B8;</mi><mo>&#x2212;</mo><mi>g</mi><mi>t</mi></mrow></math> 随时间均匀改变(红色箭头先缩短、过最高点后反向增长)。<br>
       · 两个分运动<b>合成</b>出来的轨迹,就是一条<b>抛物线</b>。这就是「运动的合成与分解」。
     </p>
 
-    <div class="compliance">
+    <div class="compliance" id="i18n-compliance">
       合规声明:本 demo 仅使用<b>自绘抽象参数与运动学模型</b>(参数化抛物线轨迹)做概念可视化,
       未复制任何高考原题文字、原卷图片或答案图,不是题目搬运。
     </div>
@@ -332,6 +373,181 @@
 <script>
 (function () {
   "use strict";
+
+  // ---------- I18N 字典 ----------
+  var I18N = {
+    zh: {
+      "doc-title":    "抛体运动可视化实验室 · 速度分解 / 轨迹 / 落点预测",
+      "title":        "抛体运动可视化实验室 — 速度分解 · 轨迹 · 落点预测",
+      "sub":          "伪 3D 透视场景:小球从发射点沿抛物线飞行。拖动轨迹上的橙点(或拖时间滑块)查看任意时刻的速度分解;右侧滑块改变发射条件。",
+      "h-eq":         "运动方程(自绘抽象模型)",
+      "eq-horiz":     "水平(匀速)",
+      "eq-vert":      "竖直(匀变速)",
+      "constant":     "恒定",
+      "h-moment":     "当前时刻 t(拖橙点 / 滑块)",
+      "label-t":      "时间 t",
+      "ro-pos":       "位置 (x, y)",
+      "ro-vx":        "水平分量",
+      "ro-vy":        "竖直分量",
+      "ro-v":         "合速度",
+      "ro-ang":       "速度方向(与水平)",
+      "h-predict":    "落点预测与轨迹特征",
+      "ro-T":         "飞行时间 T",
+      "ro-R":         "水平射程 R",
+      "ro-H":         "最大高度 H",
+      "ro-vland":     "落地速度",
+      "h-launch":     "发射条件(滑块)",
+      "slider-v0":    "初速度 v₀ (m/s)",
+      "slider-th":    "抛射角 θ (°)",
+      "slider-g":     "重力加速度 g (m/s²)",
+      "slider-h0":    "初始高度 h₀ (m)",
+      "h-preset":     "预设 / 动画",
+      "preset-flat":  "平抛 (θ=0)",
+      "preset-45":    "斜抛 45°",
+      "preset-high":  "大角度 75°",
+      "preset-moon":  "低重力 (g=1.6)",
+      "btn-play":     "▶ 播放",
+      "btn-pause":    "⏸ 暂停",
+      "btn-reset":    "重置视图",
+      "h-legend":     "图例",
+      "leg-traj":     "黄色弧线:<b style='color:var(--traj)'>抛物线轨迹</b>(合运动)",
+      "leg-vx":       "绿色箭头:<b style='color:var(--vx)'>水平分量 <math xmlns='http://www.w3.org/1998/Math/MathML'><msub><mi>v</mi><mi>x</mi></msub></math></b>,大小不变 → 匀速",
+      "leg-vy":       "红色箭头:<b style='color:var(--vy)'>竖直分量 <math xmlns='http://www.w3.org/1998/Math/MathML'><msub><mi>v</mi><mi>y</mi></msub></math></b>,随时间变 → 匀变速",
+      "leg-v":        "蓝色箭头:<b style='color:var(--vfull)'>合速度 <math xmlns='http://www.w3.org/1998/Math/MathML'><mi>v</mi></math></b>,与轨迹相切",
+      "leg-apex":     "紫点:<b style='color:var(--apex)'>最高点</b>",
+      "leg-land":     "红点:<b style='color:var(--land)'>落地点</b>",
+      "h-insight":    "抛体运动告诉我们什么",
+      "note":         "抛体运动可<b>分解为两个独立的直线运动</b>:<br>· <b>水平方向</b>:不受力(忽略空气阻力),做<b>匀速直线运动</b>,<math xmlns='http://www.w3.org/1998/Math/MathML'><mrow><msub><mi>v</mi><mi>x</mi></msub><mo>=</mo><msub><mi>v</mi><mn>0</mn></msub><mi>cos</mi><mi>&#x3B8;</mi></mrow></math> 始终不变(绿色箭头长度恒定)。<br>· <b>竖直方向</b>:只受重力,做<b>匀变速运动</b>,<math xmlns='http://www.w3.org/1998/Math/MathML'><mrow><msub><mi>v</mi><mi>y</mi></msub><mo>=</mo><msub><mi>v</mi><mn>0</mn></msub><mi>sin</mi><mi>&#x3B8;</mi><mo>&#x2212;</mo><mi>g</mi><mi>t</mi></mrow></math> 随时间均匀改变(红色箭头先缩短、过最高点后反向增长)。<br>· 两个分运动<b>合成</b>出来的轨迹,就是一条<b>抛物线</b>。这就是「运动的合成与分解」。",
+      "compliance":   "合规声明:本 demo 仅使用<b>自绘抽象参数与运动学模型</b>(参数化抛物线轨迹)做概念可视化,未复制任何高考原题文字、原卷图片或答案图,不是题目搬运。",
+      // canvas 标注(由 JS 绘图读取)
+      "canvas-launch":  "发射点",
+      "canvas-apex":    "最高点 ",
+      "canvas-land":    "落地 ",
+      "canvas-x-axis":  "水平距离 ",
+      "canvas-y-axis":  "高度 "
+    },
+    en: {
+      "doc-title":    "Projectile Motion Lab · Velocity Decomposition / Trajectory / Range Prediction",
+      "title":        "Projectile Motion Lab — Velocity Decomposition · Trajectory · Range Prediction",
+      "sub":          "Pseudo-3D perspective scene: a ball flies along a parabola from the launch point. Drag the orange dot on the trajectory (or the time slider) to inspect velocity decomposition at any moment; use the right-side sliders to change launch conditions.",
+      "h-eq":         "Equations of Motion (Abstract Model)",
+      "eq-horiz":     "Horizontal (uniform)",
+      "eq-vert":      "Vertical (uniformly accelerated)",
+      "constant":     "constant",
+      "h-moment":     "Current Time t (drag dot / slider)",
+      "label-t":      "Time t",
+      "ro-pos":       "Position (x, y)",
+      "ro-vx":        "Horizontal component",
+      "ro-vy":        "Vertical component",
+      "ro-v":         "Resultant speed",
+      "ro-ang":       "Velocity angle (from horizontal)",
+      "h-predict":    "Range Prediction & Trajectory Features",
+      "ro-T":         "Time of flight T",
+      "ro-R":         "Horizontal range R",
+      "ro-H":         "Maximum height H",
+      "ro-vland":     "Landing speed",
+      "h-launch":     "Launch Conditions (sliders)",
+      "slider-v0":    "Launch speed v₀ (m/s)",
+      "slider-th":    "Launch angle θ (°)",
+      "slider-g":     "Gravitational acc. g (m/s²)",
+      "slider-h0":    "Initial height h₀ (m)",
+      "h-preset":     "Presets / Animation",
+      "preset-flat":  "Horizontal launch (θ=0)",
+      "preset-45":    "45° launch",
+      "preset-high":  "High angle 75°",
+      "preset-moon":  "Low gravity (g=1.6)",
+      "btn-play":     "▶ Play",
+      "btn-pause":    "⏸ Pause",
+      "btn-reset":    "Reset View",
+      "h-legend":     "Legend",
+      "leg-traj":     "Yellow arc: <b style='color:var(--traj)'>parabolic trajectory</b> (resultant motion)",
+      "leg-vx":       "Green arrow: <b style='color:var(--vx)'>horizontal component <math xmlns='http://www.w3.org/1998/Math/MathML'><msub><mi>v</mi><mi>x</mi></msub></math></b>, constant → uniform motion",
+      "leg-vy":       "Red arrow: <b style='color:var(--vy)'>vertical component <math xmlns='http://www.w3.org/1998/Math/MathML'><msub><mi>v</mi><mi>y</mi></msub></math></b>, varies with time → uniformly accelerated",
+      "leg-v":        "Blue arrow: <b style='color:var(--vfull)'>resultant velocity <math xmlns='http://www.w3.org/1998/Math/MathML'><mi>v</mi></math></b>, tangent to trajectory",
+      "leg-apex":     "Purple dot: <b style='color:var(--apex)'>apex</b>",
+      "leg-land":     "Red dot: <b style='color:var(--land)'>landing point</b>",
+      "h-insight":    "What Projectile Motion Teaches Us",
+      "note":         "Projectile motion can be <b>decomposed into two independent linear motions</b>:<br>· <b>Horizontal</b>: no net force (air resistance neglected) — <b>uniform motion</b>; <math xmlns='http://www.w3.org/1998/Math/MathML'><mrow><msub><mi>v</mi><mi>x</mi></msub><mo>=</mo><msub><mi>v</mi><mn>0</mn></msub><mi>cos</mi><mi>&#x3B8;</mi></mrow></math> remains constant (green arrow length never changes).<br>· <b>Vertical</b>: gravity only — <b>uniformly accelerated motion</b>; <math xmlns='http://www.w3.org/1998/Math/MathML'><mrow><msub><mi>v</mi><mi>y</mi></msub><mo>=</mo><msub><mi>v</mi><mn>0</mn></msub><mi>sin</mi><mi>&#x3B8;</mi><mo>&#x2212;</mo><mi>g</mi><mi>t</mi></mrow></math> changes linearly with time (red arrow shortens, reverses after apex).<br>· Combining the two motions yields a <b>parabola</b> — the essence of <i>composition and decomposition of motion</i>.",
+      "compliance":   "Compliance notice: this demo uses only <b>abstract self-drawn parameters and kinematic models</b> (parametric parabolic trajectories) for concept visualization. No original exam text, figure, or answer has been reproduced.",
+      // canvas labels (read by JS drawing routines)
+      "canvas-launch":  "Launch",
+      "canvas-apex":    "Apex ",
+      "canvas-land":    "Land ",
+      "canvas-x-axis":  "Range ",
+      "canvas-y-axis":  "Height "
+    }
+  };
+
+  // 当前语言,默认中文
+  var currentLang = "zh";
+
+  // ---------- 语言切换核心 ----------
+  function setLang(lang) {
+    if (lang !== "zh" && lang !== "en") return;
+    currentLang = lang;
+    var d = I18N[lang];
+
+    document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
+    document.title = d["doc-title"];
+
+    // 激活按钮样式
+    document.getElementById("btnZh").classList.toggle("active", lang === "zh");
+    document.getElementById("btnEn").classList.toggle("active", lang === "en");
+
+    // 静态文案节点(innerHTML 用于含 <b> / MathML 的富文本,textContent 用于纯文本)
+    var setText = function(id, key, useHtml) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      if (useHtml) { el.innerHTML = d[key]; } else { el.textContent = d[key]; }
+    };
+
+    setText("i18n-title",      "title");
+    setText("i18n-sub",        "sub");
+    setText("i18n-h-eq",       "h-eq");
+    setText("i18n-eq-horiz",   "eq-horiz");
+    setText("i18n-eq-vert",    "eq-vert");
+    setText("i18n-constant",   "constant");
+    setText("i18n-h-moment",   "h-moment");
+    setText("i18n-label-t",    "label-t");
+    setText("i18n-ro-pos",     "ro-pos");
+    setText("i18n-ro-vx",      "ro-vx");
+    setText("i18n-ro-vy",      "ro-vy");
+    setText("i18n-ro-v",       "ro-v");
+    setText("i18n-ro-ang",     "ro-ang");
+    setText("i18n-h-predict",  "h-predict");
+    setText("i18n-ro-T",       "ro-T");
+    setText("i18n-ro-R",       "ro-R");
+    setText("i18n-ro-H",       "ro-H");
+    setText("i18n-ro-vland",   "ro-vland");
+    setText("i18n-h-launch",   "h-launch");
+    setText("i18n-slider-v0",  "slider-v0");
+    setText("i18n-slider-th",  "slider-th");
+    setText("i18n-slider-g",   "slider-g");
+    setText("i18n-slider-h0",  "slider-h0");
+    setText("i18n-h-preset",   "h-preset");
+    setText("i18n-h-legend",   "h-legend");
+    setText("i18n-leg-traj",   "leg-traj",    true);
+    setText("i18n-leg-vx",     "leg-vx",      true);
+    setText("i18n-leg-vy",     "leg-vy",      true);
+    setText("i18n-leg-v",      "leg-v",       true);
+    setText("i18n-leg-apex",   "leg-apex",    true);
+    setText("i18n-leg-land",   "leg-land",    true);
+    setText("i18n-h-insight",  "h-insight");
+    setText("i18n-note",       "note",        true);
+    setText("i18n-compliance", "compliance",  true);
+
+    // 预设按钮
+    ["preset-flat","preset-45","preset-high","preset-moon","btn-reset"].forEach(function(key) {
+      var btn = document.querySelector("[data-i18n='" + key + "']");
+      if (btn) btn.textContent = d[key];
+    });
+
+    // 播放/暂停按钮
+    updatePlayBtn();
+  }
+
+  // 暴露给 HTML onclick
+  window.setLang = setLang;
 
   // ---------- 状态:发射条件(自绘抽象参数) ----------
   var P = { v0: 20, theta: 45, g: 9.8, h0: 0 };   // 抛射角单位:度
@@ -446,6 +662,7 @@
   function drawGround() {
     var stepX = niceStep(world.Xmax, 8);
     var stepZ = niceStep(world.Zhalf * 2, 8);
+    var d = I18N[currentLang];
 
     ctx.lineWidth = 1;
     ctx.strokeStyle = getCss("--ground");
@@ -478,7 +695,7 @@
     var ay0 = project(0, 0, 0), ay1 = project(0, world.Ymax, 0);
     ctx.beginPath(); ctx.moveTo(ay0.x, ay0.y); ctx.lineTo(ay1.x, ay1.y); ctx.stroke();
 
-    // 轴标签
+    // 轴刻度标签
     ctx.fillStyle = getCss("--muted");
     ctx.font = "11px Consolas, monospace";
     ctx.textBaseline = "top"; ctx.textAlign = "center";
@@ -491,15 +708,15 @@
       var lq = project(0, ly, 0);
       ctx.fillText(fmt(ly), lq.x - 5, lq.y);
     }
-    // 轴标签:变量名 x / y 斜体衬线(与公式块一致),中文与单位用无衬线
+    // 轴标签:变量名 x / y 斜体衬线(与公式块一致),文字标注用无衬线
     ctx.textAlign = "left"; ctx.textBaseline = "bottom";
     ctx.fillStyle = getCss("--axis");
     var CN_FONT = "12px 'Microsoft YaHei', sans-serif";
     var AX_VAR  = "italic 13px 'Cambria Math', 'Times New Roman', serif";
-    var lxp = drawSeg(ax1.x - 4, ax1.y - 6, "水平距离 ", CN_FONT);
+    var lxp = drawSeg(ax1.x - 4, ax1.y - 6, d["canvas-x-axis"], CN_FONT);
     lxp = drawSeg(lxp, ax1.y - 6, "x", AX_VAR);
     drawSeg(lxp, ax1.y - 6, " / m", CN_FONT);
-    var lyp = drawSeg(ay1.x + 6, ay1.y + 4, "高度 ", CN_FONT);
+    var lyp = drawSeg(ay1.x + 6, ay1.y + 4, d["canvas-y-axis"], CN_FONT);
     lyp = drawSeg(lyp, ay1.y + 4, "y", AX_VAR);
     drawSeg(lyp, ay1.y + 4, " / m", CN_FONT);
   }
@@ -600,21 +817,22 @@
   // ---------- 绘制:发射点 / 最高点 / 落地点 ----------
   function drawMarkers() {
     var T = flightTime();
+    var d = I18N[currentLang];
     // 发射点
     var s = project(0, P.h0, 0);
-    markDot(s, getCss("--accent"), "发射点");
+    markDot(s, getCss("--accent"), d["canvas-launch"]);
     // 最高点(仅当有上升段)
     if (vy0() > 1e-6 && topTime() < T) {
       var tp = topTime();
       var ap = project(posX(tp), posY(tp), 0);
-      markDot(ap, getCss("--apex"), "最高点 ", "H", "=" + fmt(maxHeight()));
+      markDot(ap, getCss("--apex"), d["canvas-apex"], "H", "=" + fmt(maxHeight()));
     }
     // 落地点
     var lp = project(range(), 0, 0);
-    markDot(lp, getCss("--land"), "落地 ", "R", "=" + fmt(range()));
+    markDot(lp, getCss("--land"), d["canvas-land"], "R", "=" + fmt(range()));
   }
   // 画标记点 + 标签。varName/numStr 可选:提供时把变量名(H/R)斜体衬线、
-  // 数值等宽,与公式块字形一致;只传 prefix 时按纯中文居中绘制(如「发射点」)。
+  // 数值等宽,与公式块字形一致;只传 prefix 时按纯文本居中绘制。
   function markDot(p, color, prefix, varName, numStr) {
     ctx.fillStyle = color; ctx.strokeStyle = "#0b0f14"; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(p.x, p.y, 5.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
@@ -799,7 +1017,8 @@
   // ---------- 播放动画 ----------
   function updatePlayBtn() {
     var b = document.getElementById("btnPlay");
-    b.textContent = playing ? "⏸ 暂停" : "▶ 播放";
+    var d = I18N[currentLang];
+    b.textContent = playing ? d["btn-pause"] : d["btn-play"];
     b.classList.toggle("active", playing);
   }
   document.getElementById("btnPlay").addEventListener("click", function () {
